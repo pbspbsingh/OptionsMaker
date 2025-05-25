@@ -1,0 +1,17 @@
+[project]
+name = "options-maker-server"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "aiohttp>=3.11.18",
+    "asyncpg>=0.30.0",
+    "lightweight-charts>=2.1",
+    "numpy>=2.2.5",
+    "pandas>=2.2.3",
+    "schwab-py>=1.5.0",
+    "scipy>=1.15.3",
+    "ta-lib>=0.6.3",
+    "tortoise-orm[psycopg]>=0.25.0",
+]
