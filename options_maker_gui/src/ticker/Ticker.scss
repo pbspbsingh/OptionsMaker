@@ -1,0 +1,15 @@
+.ticker {
+    
+    header {
+        height: 80px;
+        padding: 1rem;
+        margin-bottom: 1rem;
+        display: flex;
+        align-items: center;
+        box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.2);
+
+        > * {
+            margin: 0;
+        }
+    }
+}

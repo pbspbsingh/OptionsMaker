@@ -21,7 +21,9 @@ async def init_clients():
 
     if config.FAKE_CONFIG.get("fake_it", False):
         _LOGGER.warning("****** Running Fake Schwab Client *******")
-        CLIENT = FakeSchwabClient()
+        fc = FakeSchwabClient()
+        await fc.init_client()
+        CLIENT = fc
         return
 
     retries = 0
@@ -64,5 +66,5 @@ async def _init() -> SchwabClient:
     await stream_client.login()
 
     sc = SchwabClient(default_account, my_client, stream_client)
-    await sc.init_accounts_info()
+    await sc.init_client()
     return sc

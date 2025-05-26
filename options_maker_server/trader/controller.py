@@ -7,6 +7,7 @@ import talib
 from db.instruments import Price, Divergence
 from utils.prices import prices_to_df, agg_prices, compute_price_levels, PriceLevel, compute_divergence
 from utils.times import parse_duration_string
+from websocket import ws_count, ws_publish
 
 SUPPORT_RESISTANCE_DAYS = 7
 HIGHER_TIME_FRAME = "5min"
@@ -40,8 +41,6 @@ class Controller:
         self._update_prices()
 
     def _update_prices(self):
-        import time
-        start = time.process_time_ns()
         self._price_level_time_frame = agg_prices(self._lower_time_frame, PRICE_LEVEL_TIME_FRAME)
         self._price_levels = compute_price_levels(self._price_level_time_frame, 5)
 
@@ -55,20 +54,30 @@ class Controller:
                 self._divergences.pop()
             self._divergences.append(divergence)
 
-        end = time.process_time_ns()
-        print(f"Total price levels: {len(self._price_levels)}, time: {(end - start) // 1e6}")
+        if ws_count() > 0:
+            ws_publish(self.ws_msg())
+
 
     def to_json(self) -> dict[str, Any]:
         price_line_bars = self._price_level_time_frame.copy()
-        price_line_bars["time"] = price_line_bars.index.tz_localize(None)
+        price_line_bars["time"] = price_line_bars.index.tz_localize(None).astype("int64") // 10 ** 9
         higher_time_frame_bars = self._higher_time_frame.copy()
-        higher_time_frame_bars["time"] = higher_time_frame_bars.index.tz_localize(None)
+        higher_time_frame_bars["time"] = higher_time_frame_bars.index.tz_localize(None).astype("int64") // 10 ** 9
+        lower_time_frame_bars = _today_prices(self._lower_time_frame).copy()
+        lower_time_frame_bars["time"] = lower_time_frame_bars.index.tz_localize(None).astype("int64") // 10 ** 9
         return {
             "symbol": self.symbol,
             "price_levels_bars": price_line_bars.to_dict(orient="records"),
             "price_levels": [pl.to_dict() for pl in self._price_levels],
             "higher_time_frame_bars": higher_time_frame_bars.to_dict(orient="records"),
             "divergences": [d.to_dict() for d in self._divergences],
+            "lower_time_frame_bars": lower_time_frame_bars.to_dict(orient="records"),
+        }
+
+    def ws_msg(self):
+        return {
+            "action": "UPDATE_CHART",
+            "data": self.to_json(),
         }
 
 

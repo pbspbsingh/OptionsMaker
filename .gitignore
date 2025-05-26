@@ -1,6 +1,6 @@
 .DS_Store
 .idea
-node_moduels
+node_modules
 target
 .pyc
 __pycache__

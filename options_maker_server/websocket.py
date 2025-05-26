@@ -1,16 +1,29 @@
-import asyncio
 import logging
-from asyncio import Queue
+from asyncio import Queue, QueueFull
 from logging import Logger
+from typing import Any
 
-from aiohttp import web, WSMessage, WSMsgType
+from aiohttp import web
 from aiohttp.web_ws import WebSocketResponse
 
 import broker
+import trader
 
 _ws_id = 1
 
 _WS_QUEUES: dict[int, Queue] = {}
+
+
+def ws_count() -> int:
+    return len(_WS_QUEUES)
+
+
+def ws_publish(msg: Any):
+    for ws_id, queue in _WS_QUEUES.items():
+        try:
+            queue.put_nowait(msg)
+        except QueueFull as qf:
+            logging.warning(f"Queue is full for {ws_id}: {qf}")
 
 
 async def ws_handler(request: web.Request) -> web.WebSocketResponse:
@@ -25,34 +38,45 @@ async def ws_handler(request: web.Request) -> web.WebSocketResponse:
         await ws.prepare(request)
         await ws.send_json({
             "action": "UPDATE_ACCOUNT",
-            "number": broker.CLIENT.account.number,
-            "balance": broker.CLIENT.account.balance,
+            "data": {
+                "ws_id": ws_id,
+                "number": broker.CLIENT.account.number,
+                "balance": broker.CLIENT.account.balance,
+            }
         })
-        await send_ws_responses(ws, queue, logger)
+        for ctr in trader.SUBSCRIBED_INSTRUMENTS.values():
+            await ws.send_json(ctr.ws_msg())
+
+        await _dispatch_ws_msgs(ws, queue, logger)
     except Exception as e:
-        logger.warning("Something went wrong:", e)
+        logger.warning(f"Something went wrong: {str(e)}")
 
     logger.info("Closing websocket connection")
     _WS_QUEUES.pop(ws_id)
     return ws
 
 
-async def send_ws_responses(ws: WebSocketResponse, queue: Queue, logger: Logger):
+async def _dispatch_ws_msgs(ws: WebSocketResponse, queue: Queue, logger: Logger):
     while True:
-        done, pending = await asyncio.wait(
-            [asyncio.create_task(queue.get()), asyncio.create_task(ws.receive())],
-            return_when=asyncio.FIRST_COMPLETED,
-        )
-        for task in done:
-            result = task.result()
-            if isinstance(result, WSMessage):
-                if result.type == WSMsgType.CLOSE:
-                    return
-            else:
-                logger.info("Got an unexpected message:", result)
+        msg = await queue.get()
+        await ws.send_json(msg)
+    # while True:
+    #     done, pending = await asyncio.wait(
+    #         [asyncio.create_task(queue.get()), asyncio.create_task(ws.receive())],
+    #         return_when=asyncio.FIRST_COMPLETED,
+    #     )
+    #     for task in done:
+    #         result = task.result()
+    #         if isinstance(result, WSMessage):
+    #             if result.type == WSMsgType.CLOSE:
+    #                 return
+    #         else:
+    #             logger.info("Got an unexpected message:", result)
 
 
 def _get_logger():
     global _ws_id
     _ws_id += 1
     return _ws_id, logging.getLogger(f"{__name__}[{_ws_id}]")
+
+# def ws_publish()

@@ -1,0 +1,12 @@
+$primary: #ff0000;
+
+@use "../node_modules/@picocss/pico/scss/pico.scss" with (
+    $semantic-root-element: "#root",
+    $enable-semantic-container: true,
+    $enable-classes: true,
+    $theme-color: "indigo"
+);
+
+:root {
+    font-size: 18px;
+}

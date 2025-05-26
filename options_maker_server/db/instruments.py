@@ -31,8 +31,8 @@ class Price(Model):
         unique_together = ("symbol", "time")
 
     def __str__(self):
-        time = self.time.astimezone(MY_TIME_ZONE)
-        return f"{self.symbol}[{time}](Open: {self.open}, Close: {self.close}, High: {self.high}, Low: {self.low}, Volume: {self.volume})"
+        time = self.time.astimezone(MY_TIME_ZONE).replace(tzinfo=None)
+        return f"{self.symbol}({time})[Open: {self.open}, Close: {self.close}, High: {self.high}, Low: {self.low}, Volume: {self.volume}]"
 
 
 class DivergenceType(Enum):

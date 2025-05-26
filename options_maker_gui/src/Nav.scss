@@ -1,0 +1,53 @@
+.left-nav {
+    width: 280px;
+    padding-top: 1rem;
+    min-height: 100vh;
+    overflow-x: hidden;
+    overflow-y: auto;
+
+    p {
+        margin-block-end: .4rem;
+    }
+
+    h6 {
+        margin-bottom: .4rem;
+    }
+
+    .tickers {
+        li {
+            padding-block: .2rem;
+            font-size: .9rem;
+        }
+
+        a {
+            padding-inline: 1rem;
+            color: var(--pico-color);
+            border: 1px solid transparent;
+            border-radius: var(--pico-border-radius);
+            font-weight: var(--pico-font-weight-bold);
+            transition: all 0.2s ease-in-out;
+            background-position: center right;
+
+            &.active {
+                font-weight: bold;
+                text-decoration: underline;
+                background: var(--pico-icon-valid) no-repeat right 30px center;
+            }
+
+            &:hover {
+                text-decoration: none;
+                // border-color: var(--pico-secondary-border);
+                background-color: var(--pico-secondary-focus);
+                color: var(--pico-primary-inverse);
+            }
+        }
+    }
+    .bottom-form {
+        position: fixed;
+        width: 280px;
+        bottom: 0;
+        margin: 0;
+        padding-right: 1rem;
+        --pico-form-element-spacing-vertical: 0.3rem
+    }
+}
