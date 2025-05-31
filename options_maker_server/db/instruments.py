@@ -54,11 +54,11 @@ class Divergence(Model):
 
     def to_dict(self) -> Dict[str, Any]:
         return {
-            "divergence": self.div_type.name,
-            "start": int(1000 * self.start.tz_localize(None).timestamp()),
+            "div_type": self.div_type.name,
+            "start": self.start.astimezone(MY_TIME_ZONE).tz_localize(None).timestamp(),
             "start_price": self.start_price,
             "start_rsi": self.start_rsi,
-            "end": int(1000 * self.end.tz_localize(None).timestamp()),
+            "end": self.end.astimezone(MY_TIME_ZONE).tz_localize(None).timestamp(),
             "end_price": self.end_price,
             "end_rsi": self.end_rsi,
         }

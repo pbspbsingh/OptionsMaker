@@ -26,14 +26,22 @@ export default function Ticker() {
             </header>
             <section className="grid">
                 <Chart
-                    key={`${ticker}_1Min`}
-                    prices={tickerCharts.lower_time_frame_bars}
-                    
-                />
-                <Chart
                     key={`${ticker}_5Min`}
                     prices={tickerCharts.higher_time_frame_bars}
-                    
+                    priceLevels={tickerCharts.price_levels}
+                    divergences={tickerCharts.divergences}
+                />
+            </section>
+            <section className="grid">
+                <Chart
+                    key={`${ticker}_1Min`}
+                    prices={tickerCharts.lower_time_frame_bars}
+                    priceLevels={tickerCharts.price_levels}
+                />
+                <Chart
+                    key={`${ticker}_60Min`}
+                    prices={tickerCharts.price_levels_bars}
+                    priceLevels={tickerCharts.price_levels}
                 />
             </section>
         </div>

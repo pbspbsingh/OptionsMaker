@@ -52,7 +52,7 @@ class PriceLevel:
         return {
             "price": self.price,
             "weight": self.weight,
-            "at": int(1000 * self.at.tz_localize(None).timestamp()),
+            "at": self.at.tz_localize(None).timestamp(),
         }
 
     def __str__(self):
@@ -121,7 +121,8 @@ def _find_min_max(df: pd.DataFrame, order: int) -> pd.DataFrame:
     return price_levels
 
 
-def compute_divergence(symbol: str, df: pd.DataFrame) -> Optional[Divergence]:
+def compute_divergence(symbol: str, df: pd.DataFrame, div_order: int = 3) -> Optional[Divergence]:
+    df = df.iloc[:-1]    # Ignore the latest price point, since this one is still updating
     length = df.shape[0]
     if length < 3:
         return None
@@ -134,10 +135,10 @@ def compute_divergence(symbol: str, df: pd.DataFrame) -> Optional[Divergence]:
     ## Make sure that second last point is higher than neighbors or lower than it's neighbors
     if (last.close < second_last.close > third_last.close) and (second_last.high > third_last.high):
         div_type = DivergenceType.Bearish
-        extrema = argrelextrema(df.rsi.values, np.greater, order=1)[0]
+        extrema = argrelextrema(df.rsi.values, np.greater, order=div_order)[0]
     elif (last.close > second_last.close < third_last.close) and (second_last.low < third_last.low):
         div_type = DivergenceType.Bullish
-        extrema = argrelextrema(df.rsi.values, np.less, order=1)[0]
+        extrema = argrelextrema(df.rsi.values, np.less, order=div_order)[0]
     else:
         return None
 

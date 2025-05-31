@@ -41,7 +41,13 @@ export type PriceLevel = {
 };
 
 export type Divergence = {
-
+    div_type: "Bearish" | "Bullish",
+    start: UTCTimestamp,
+    start_price: number,
+    start_rsi: number,
+    end: UTCTimestamp,
+    end_price: number,
+    end_rsi: number,
 };
 
 export type Chart = {
