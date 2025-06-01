@@ -8,7 +8,7 @@ export function fmt(num: number): string {
 export const priceToVol = (price: Price): { time: UTCTimestamp, value: number, color: string } => ({
     time: price.time,
     value: price.volume,
-    color: price.open >= price.close ? 'rgba(38, 166, 154, 0.5)' : 'rgba(239, 83, 80, 0.5)',
+    color: price.open <= price.close ? 'rgba(38, 166, 154, 0.5)' : 'rgba(239, 83, 80, 0.5)',
 });
 
 export const priceToRsi = (price: Price): { time: UTCTimestamp, value?: number } => ({

@@ -83,6 +83,18 @@ export default function Chart({ prices, priceLevels, divergences }: ChartProps) 
                 },
                 1,
             );
+            rsiLineRef.current.createPriceLine({
+                price: 70,
+                lineWidth: 1,
+                axisLabelVisible: false,
+                lineStyle: 4,
+            });
+            rsiLineRef.current.createPriceLine({
+                price: 30,
+                lineWidth: 1,
+                axisLabelVisible: false,
+                lineStyle: 4,
+            });
             chartRef.current.panes()[1].setHeight(150);
         }
 
@@ -168,7 +180,7 @@ export default function Chart({ prices, priceLevels, divergences }: ChartProps) 
                 const rsiLine = chart.addSeries(LineSeries, {
                     priceLineVisible: false,
                     lastValueVisible: false,
-                    lineWidth: 1,
+                    lineWidth: 2,
                     color,
                 }, 1);
                 rsiLine.setData([
