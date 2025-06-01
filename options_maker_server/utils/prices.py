@@ -122,7 +122,7 @@ def _find_min_max(df: pd.DataFrame, order: int) -> pd.DataFrame:
 
 
 def compute_divergence(symbol: str, df: pd.DataFrame, div_order: int = 3) -> Optional[Divergence]:
-    df = df.iloc[:-1]    # Ignore the latest price point, since this one is still updating
+    df = df.iloc[:-1]  # Ignore the latest price point, since this one is still updating
     length = df.shape[0]
     if length < 3:
         return None
@@ -167,23 +167,26 @@ def _find_divergence(
                 ((div_type == DivergenceType.Bearish and rsi_angle > prev_rsi_angle) or (
                         div_type == DivergenceType.Bullish and rsi_angle < prev_rsi_angle))):
             continue
-
-        extreme_angle = _compute_angle(series, last_idx, cur_idx)
-        if rsi_angle * extreme_angle < 0:
-            angle_diff = _angle_diff(rsi_angle, extreme_angle)
-            if max_angle_diff < angle_diff:
-                max_angle_diff = angle_diff
-                result = Divergence(
-                    symbol=symbol,
-                    div_type=div_type,
-                    date=df.index[last_idx].date(),
-                    start=df.index[cur_idx],
-                    start_price=series.iloc[cur_idx],
-                    start_rsi=df.rsi.iloc[cur_idx],
-                    end=df.index[last_idx],
-                    end_price=series.iloc[last_idx],
-                    end_rsi=df.rsi.iloc[last_idx],
-                )
+        rsi1 = df.rsi.iloc[last_idx]
+        rsi2 = df.rsi.iloc[cur_idx]
+        if (div_type == DivergenceType.Bearish and (rsi1 >= 70 or rsi2 >= 70)) or (
+                div_type == DivergenceType.Bullish and (rsi1 <= 30 or rsi2 <= 30)):
+            extreme_angle = _compute_angle(series, last_idx, cur_idx)
+            if rsi_angle * extreme_angle < 0:
+                angle_diff = _angle_diff(rsi_angle, extreme_angle)
+                if max_angle_diff < angle_diff:
+                    max_angle_diff = angle_diff
+                    result = Divergence(
+                        symbol=symbol,
+                        div_type=div_type,
+                        date=df.index[last_idx].date(),
+                        start=df.index[cur_idx],
+                        start_price=series.iloc[cur_idx],
+                        start_rsi=df.rsi.iloc[cur_idx],
+                        end=df.index[last_idx],
+                        end_price=series.iloc[last_idx],
+                        end_rsi=df.rsi.iloc[last_idx],
+                    )
         prev_rsi_angle = rsi_angle
     return result
 

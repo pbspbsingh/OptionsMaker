@@ -38,6 +38,8 @@ class Controller:
 
         self._logger.debug(f"Got new price {price}")
         self._lower_time_frame = pd.concat([self._lower_time_frame, prices_to_df([price])])
+        if len(self._divergences) > 0 and self._divergences[-1].date < price.time.date():
+            self._divergences.clear()
         self._update_prices()
 
     def _update_prices(self):
@@ -49,14 +51,11 @@ class Controller:
         self._higher_time_frame = _today_prices(self._higher_time_frame)
         divergence = compute_divergence(self.symbol, self._higher_time_frame)
         if divergence is not None:
-            if (len(self._divergences) > 0 and
-                    self._divergences[-1].end - divergence.end <= DIVERGENCE_GAP):
-                self._divergences.pop()
+            self._clear_overlapping(divergence)
             self._divergences.append(divergence)
 
         if ws_count() > 0:
             ws_publish(self.ws_msg())
-
 
     def to_json(self) -> dict[str, Any]:
         price_line_bars = self._price_level_time_frame.copy()
@@ -79,6 +78,14 @@ class Controller:
             "action": "UPDATE_CHART",
             "data": self.to_json(),
         }
+
+    def _clear_overlapping(self, divergence: Divergence):
+        while len(self._divergences) > 0:
+            last = self._divergences[-1]
+            if last.div_type == divergence.div_type and last.end > divergence.start:
+                self._divergences.pop()
+            else:
+                break
 
 
 def _today_prices(df: pd.DataFrame) -> pd.DataFrame:
