@@ -7,8 +7,8 @@ import { NavLink } from "react-router";
 import { Connected, NotConnected } from "./icons";
 
 export default function Nav(): JSX.Element {
-    const { connected, account, charts } = useContext(AppStateContext);
-    const tickers = Object.keys(charts);
+    const { connected, account, symbols } = useContext(AppStateContext);
+    const tickers = Object.keys(symbols);
     tickers.sort();
 
     return (

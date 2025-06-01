@@ -13,5 +13,5 @@ export const priceToVol = (price: Price): { time: UTCTimestamp, value: number, c
 
 export const priceToRsi = (price: Price): { time: UTCTimestamp, value?: number } => ({
     time: price.time,
-    value: price.rsi,
+    value: price.rsi != null ? price.rsi : undefined,
 });

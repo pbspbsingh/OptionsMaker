@@ -13,9 +13,7 @@ export type AppAction = {
     }
 } | {
     action: 'UPDATE_CHART',
-    data: {
-        symbol: string,
-    } & Chart,
+    data: Symbol,
 };
 
 export type Account = {
@@ -32,6 +30,7 @@ export type Price = {
     close: number,
     volume: number,
     rsi?: number,
+    mi?: number,
 };
 
 export type PriceLevel = {
@@ -51,11 +50,15 @@ export type Divergence = {
 };
 
 export type Chart = {
-    lower_time_frame_bars: Price[],
-    higher_time_frame_bars: Price[],
-    price_levels_bars: Price[],
-    price_levels: PriceLevel[],
+    prices: Price[],
     divergences: Divergence[],
+};
+
+export type Symbol = {
+    symbol: string,
+    last_updated: number,
+    price_levels: PriceLevel[],
+    charts: { [time_frame: string]: Chart },
 }
 
 export const DEFAULT_APP_STATE: AppState = {
@@ -65,13 +68,13 @@ export const DEFAULT_APP_STATE: AppState = {
         number: '',
         balance: 0,
     },
-    charts: {},
+    symbols: {},
 };
 
 export type AppState = {
     connected: boolean,
     account: Account,
-    charts: { [key: string]: Chart },
+    symbols: { [key: string]: Symbol },
 };
 
 export const AppStateContext = createContext<AppState>(DEFAULT_APP_STATE);
@@ -94,8 +97,8 @@ export function appReducer(state: AppState, action: AppAction): AppState {
         case 'UPDATE_CHART': {
             return {
                 ...state,
-                charts: {
-                    ...state.charts,
+                symbols: {
+                    ...state.symbols,
                     [action.data.symbol]: action.data,
                 }
             };

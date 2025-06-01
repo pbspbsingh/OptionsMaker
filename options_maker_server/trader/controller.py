@@ -2,75 +2,57 @@ import logging
 from typing import Any
 
 import pandas as pd
-import talib
 
-from db.instruments import Price, Divergence
-from utils.prices import prices_to_df, agg_prices, compute_price_levels, PriceLevel, compute_divergence
-from utils.times import parse_duration_string
-from websocket import ws_count, ws_publish
+import websocket as ws
+from db.instruments import Price
+from trader.chart import Chart
+from utils.prices import prices_to_df, agg_prices, compute_price_levels, PriceLevel
 
 SUPPORT_RESISTANCE_DAYS = 7
-HIGHER_TIME_FRAME = "5min"
 PRICE_LEVEL_TIME_FRAME = "60min"
-
-DIVERGENCE_GAP = parse_duration_string(HIGHER_TIME_FRAME)
 
 
 class Controller:
     symbol: str
-    _lower_time_frame: pd.DataFrame
-    _higher_time_frame: pd.DataFrame
-    _price_level_time_frame: pd.DataFrame
+    _lower_time_frame_prices: pd.DataFrame
     _price_levels: list[PriceLevel]
-    _divergences: list[Divergence]
+    _charts: list[Chart]
 
     def __init__(self, symbol: str, prices: list[Price]):
         self.symbol = symbol
         self._logger = logging.getLogger(f"Controller[{symbol}]")
 
-        self._divergences = []
-        self._lower_time_frame = prices_to_df(prices)
+        self._lower_time_frame_prices = prices_to_df(prices)
+        self._price_levels = []
+        self._charts = [Chart("5Min"), Chart("30Min")]
+
         self._update_prices()
 
     def on_new_price(self, price: Price):
-        if not self._lower_time_frame.empty and self._lower_time_frame.iloc[-1].name >= price.time:
+        if not self._lower_time_frame_prices.empty and self._lower_time_frame_prices.iloc[-1].name >= price.time:
             return
 
         self._logger.debug(f"Got new price {price}")
-        self._lower_time_frame = pd.concat([self._lower_time_frame, prices_to_df([price])])
-        if len(self._divergences) > 0 and self._divergences[-1].date < price.time.date():
-            self._divergences.clear()
+        self._lower_time_frame_prices = pd.concat([self._lower_time_frame_prices, prices_to_df([price])])
+
         self._update_prices()
 
     def _update_prices(self):
-        self._price_level_time_frame = agg_prices(self._lower_time_frame, PRICE_LEVEL_TIME_FRAME)
-        self._price_levels = compute_price_levels(self._price_level_time_frame, 5)
+        price_levels_prices = agg_prices(self._lower_time_frame_prices, PRICE_LEVEL_TIME_FRAME)
+        self._price_levels = compute_price_levels(price_levels_prices, 6)
 
-        self._higher_time_frame = agg_prices(self._lower_time_frame, HIGHER_TIME_FRAME)
-        self._higher_time_frame["rsi"] = talib.RSI(self._higher_time_frame.close)
-        self._higher_time_frame = _today_prices(self._higher_time_frame)
-        divergence = compute_divergence(self.symbol, self._higher_time_frame)
-        if divergence is not None:
-            self._clear_overlapping(divergence)
-            self._divergences.append(divergence)
+        for chart in self._charts:
+            chart.update(self._lower_time_frame_prices)
 
-        if ws_count() > 0:
-            ws_publish(self.ws_msg())
+        if ws.ws_count() > 0:
+            ws.ws_publish(self.ws_msg())
 
     def to_json(self) -> dict[str, Any]:
-        price_line_bars = self._price_level_time_frame.copy()
-        price_line_bars["time"] = price_line_bars.index.tz_localize(None).astype("int64") // 10 ** 9
-        higher_time_frame_bars = self._higher_time_frame.copy()
-        higher_time_frame_bars["time"] = higher_time_frame_bars.index.tz_localize(None).astype("int64") // 10 ** 9
-        lower_time_frame_bars = _today_prices(self._lower_time_frame).copy()
-        lower_time_frame_bars["time"] = lower_time_frame_bars.index.tz_localize(None).astype("int64") // 10 ** 9
         return {
             "symbol": self.symbol,
-            "price_levels_bars": price_line_bars.to_dict(orient="records"),
-            "price_levels": [pl.to_dict() for pl in self._price_levels],
-            "higher_time_frame_bars": higher_time_frame_bars.to_dict(orient="records"),
-            "divergences": [d.to_dict() for d in self._divergences],
-            "lower_time_frame_bars": lower_time_frame_bars.to_dict(orient="records"),
+            "last_updated": self._lower_time_frame_prices.index[-1].timestamp(),
+            "price_levels": [pl.to_json() for pl in self._price_levels],
+            "charts": {c.agg_time: c.to_json() for c in self._charts},
         }
 
     def ws_msg(self):
@@ -78,14 +60,6 @@ class Controller:
             "action": "UPDATE_CHART",
             "data": self.to_json(),
         }
-
-    def _clear_overlapping(self, divergence: Divergence):
-        while len(self._divergences) > 0:
-            last = self._divergences[-1]
-            if last.div_type == divergence.div_type and last.end > divergence.start:
-                self._divergences.pop()
-            else:
-                break
 
 
 def _today_prices(df: pd.DataFrame) -> pd.DataFrame:

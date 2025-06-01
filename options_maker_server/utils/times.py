@@ -1,8 +1,41 @@
 import datetime
+import re
+from datetime import timedelta
 
 import pytz
 
 import config
+
+MY_TIME_ZONE = pytz.timezone(config.TIME_ZONE)
+
+
+def now() -> datetime.datetime:
+    return datetime.datetime.now(MY_TIME_ZONE)
+
+
+def days_ago(days: int) -> datetime.datetime:
+    time = now() - datetime.timedelta(days=days)
+    return time.replace(hour=0, minute=0, second=0, microsecond=0)
+
+
+def parse_duration_string(duration_str: str) -> timedelta:
+    """
+    Converts a duration string like '15min', '2h', '1d' into a timedelta object.
+    """
+    match = re.match(r'(\d+)([hmdmin])', duration_str, re.IGNORECASE)
+    if match:
+        value_str, unit = match.groups()
+        value = int(value_str)
+        unit = unit.lower()
+        if unit == 'min':
+            return timedelta(minutes=value)
+        elif unit == 'h':
+            return timedelta(hours=value)
+        elif unit == 'd':
+            return timedelta(days=value)
+        elif unit == 'm':  # Assuming 'm' means minutes as 'min' is also handled
+            return timedelta(minutes=value)
+    raise ValueError(f"Invalid duration string '{duration_str}'")
 
 
 def seconds_to_human(seconds: int) -> str:
@@ -31,42 +64,6 @@ def seconds_to_human(seconds: int) -> str:
             parts.append(f"{seconds}sec")
 
     return " ".join(parts) if len(parts) > 1 else parts[0]
-
-
-MY_TIME_ZONE = pytz.timezone(config.TIME_ZONE)
-
-
-def now() -> datetime.datetime:
-    return datetime.datetime.now(MY_TIME_ZONE)
-
-
-def days_ago(days: int) -> datetime.datetime:
-    time = now() - datetime.timedelta(days=days)
-    return time.replace(hour=0, minute=0, second=0, microsecond=0)
-
-
-import re
-from datetime import timedelta
-
-
-def parse_duration_string(duration_str: str) -> timedelta:
-    """
-    Converts a duration string like '15min', '2h', '1d' into a timedelta object.
-    """
-    match = re.match(r'(\d+)([hmdmin])', duration_str, re.IGNORECASE)
-    if match:
-        value_str, unit = match.groups()
-        value = int(value_str)
-        unit = unit.lower()
-        if unit == 'min':
-            return timedelta(minutes=value)
-        elif unit == 'h':
-            return timedelta(hours=value)
-        elif unit == 'd':
-            return timedelta(days=value)
-        elif unit == 'm':  # Assuming 'm' means minutes as 'min' is also handled
-            return timedelta(minutes=value)
-    raise ValueError(f"Invalid duration string '{duration_str}'")
 
 
 if __name__ == "__main__":

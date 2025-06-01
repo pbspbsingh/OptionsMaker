@@ -1,11 +1,13 @@
+import datetime
 from dataclasses import dataclass
+from enum import Enum
 from typing import Any, Optional
 
 import numpy as np
 import pandas as pd
 from scipy.signal import argrelextrema
 
-from db.instruments import Price, Divergence, DivergenceType
+from db.instruments import Price
 from utils.times import MY_TIME_ZONE
 
 EPSILON = 1e-6
@@ -42,13 +44,33 @@ def agg_prices(data_frame: pd.DataFrame, duration: str) -> pd.DataFrame:
     return df
 
 
+def trim_prices(df: pd.DataFrame, day_count: int = 2) -> pd.DataFrame:
+    days = np.sort(np.unique(df.index.date))
+    if len(days) <= day_count:
+        return df
+
+    last_days = []
+    count = 0
+    for i in range(len(days) - 1, -1, -1):
+        # noinspection PyTypeChecker
+        day: datetime.date = days[i]
+        last_days.append(day)
+        if day.weekday() < 5:
+            count += 1
+        if count >= day_count:
+            break
+    return df[np.isin(df.index.date, last_days)]
+
+
+######### Price Level Logic ########
+
 @dataclass
 class PriceLevel:
     price: float
     weight: float
     at: pd.Timestamp
 
-    def to_dict(self) -> dict[str, Any]:
+    def to_json(self) -> dict[str, Any]:
         return {
             "price": self.price,
             "weight": self.weight,
@@ -121,7 +143,42 @@ def _find_min_max(df: pd.DataFrame, order: int) -> pd.DataFrame:
     return price_levels
 
 
-def compute_divergence(symbol: str, df: pd.DataFrame, div_order: int = 3) -> Optional[Divergence]:
+######### Divergence Logic ########
+
+class DivergenceType(Enum):
+    Bullish = 1
+    Bearish = 2
+
+
+@dataclass()
+class Divergence:
+    div_type: DivergenceType
+    start: pd.Timestamp
+    start_price: float
+    start_rsi: float
+    end: pd.Timestamp
+    end_price: float
+    end_rsi: float
+
+    def to_json(self) -> dict[str, Any]:
+        self.end.timestamp()
+        return {
+            "div_type": self.div_type.name,
+            "start": self.start.tz_localize(None).timestamp(),
+            "start_price": self.start_price,
+            "start_rsi": self.start_rsi,
+            "end": self.end.tz_localize(None).timestamp(),
+            "end_price": self.end_price,
+            "end_rsi": self.end_rsi,
+        }
+
+    def __str__(self):
+        start = self.start
+        end = self.end
+        return f"[{self.div_type.name} {start}/{end}(${self.start_price:.2f}/{self.start_rsi:.2f})-(${self.end_price:.2f}/{self.end_rsi:.2f})]"
+
+
+def compute_divergence(df: pd.DataFrame, div_order: int = 3) -> Optional[Divergence]:
     df = df.iloc[:-1]  # Ignore the latest price point, since this one is still updating
     length = df.shape[0]
     if length < 3:
@@ -146,11 +203,10 @@ def compute_divergence(symbol: str, df: pd.DataFrame, div_order: int = 3) -> Opt
     if len(extrema) == 0 or extrema[-1] != length - 2:
         return None
 
-    return _find_divergence(symbol, df, div_type, extrema)
+    return _find_divergence(df, div_type, extrema)
 
 
 def _find_divergence(
-        symbol: str,
         df: pd.DataFrame,
         div_type: DivergenceType,
         extrema: np.array,
@@ -177,9 +233,7 @@ def _find_divergence(
                 if max_angle_diff < angle_diff:
                     max_angle_diff = angle_diff
                     result = Divergence(
-                        symbol=symbol,
                         div_type=div_type,
-                        date=df.index[last_idx].date(),
                         start=df.index[cur_idx],
                         start_price=series.iloc[cur_idx],
                         start_rsi=df.rsi.iloc[cur_idx],

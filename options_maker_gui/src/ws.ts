@@ -27,8 +27,13 @@ export default class Websocket {
                 }
             };
             ws.onmessage = (msg) => {
-                const data = msg.data
-                this.handler(JSON.parse(data));
+                try {
+                    const data = msg.data;
+                    this.handler(JSON.parse(data));
+                } catch (e) {
+                    console.warn("Failed to process ws message", e);
+                    // console.log(msg.data);
+                }
             };
             ws.onerror = (e) => console.warn('Websocket onerror', e);
             ws.onclose = (e) => {

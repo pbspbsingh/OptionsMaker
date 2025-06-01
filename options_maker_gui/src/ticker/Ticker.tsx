@@ -8,14 +8,14 @@ import Chart from "./Chart";
 export default function Ticker() {
     const { ticker = "JUNK" } = useParams();
 
-    const { charts } = useContext(AppStateContext);
-    const tickerCharts = charts[ticker];
+    const { symbols } = useContext(AppStateContext);
+    const symbol = symbols[ticker];
 
     useEffect(() => {
         document.title = ticker;
     }, [ticker]);
 
-    if (tickerCharts == null) {
+    if (symbol == null) {
         return null;
     }
 
@@ -23,26 +23,16 @@ export default function Ticker() {
         <div className="ticker">
             <header>
                 <h3>{ticker}</h3>
+                <p>Last Updated: {new Date(symbol.last_updated * 1000).toLocaleString()}</p>
             </header>
             <section className="grid">
-                <Chart
-                    key={`${ticker}_5Min`}
-                    prices={tickerCharts.higher_time_frame_bars}
-                    priceLevels={tickerCharts.price_levels}
-                    divergences={tickerCharts.divergences}
-                />
-            </section>
-            <section className="grid">
-                <Chart
-                    key={`${ticker}_1Min`}
-                    prices={tickerCharts.lower_time_frame_bars}
-                    priceLevels={tickerCharts.price_levels}
-                />
-                <Chart
-                    key={`${ticker}_60Min`}
-                    prices={tickerCharts.price_levels_bars}
-                    priceLevels={tickerCharts.price_levels}
-                />
+                {Object.entries(symbol.charts).map(([frame, data]) => (
+                    <Chart key={`${symbol.symbol}_${frame}`}
+                        prices={data.prices}
+                        divergences={data.divergences}
+                        priceLevels={symbol.price_levels}
+                    />
+                ))}
             </section>
         </div>
     );
