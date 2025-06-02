@@ -65,7 +65,23 @@
         width: 280px;
         bottom: 0;
         margin: 0;
-        padding-right: 1rem;
+        padding-right: .2rem;
         --pico-form-element-spacing-vertical: 0.3rem
+    }
+
+    .context-menu {
+        position: absolute;
+        top: 0;
+        left: 0;
+        z-index: 100;
+        border: 1px solid var(--pico-primary-inverse);
+        padding: 0.2rem 2rem;
+        background-color: var(--pico-primary-hover-background);
+        border-radius: .2rem;
+        box-shadow: var(--pico-group-box-shadow-focus-with-input);
+
+        a {
+            color: var(--pico-primary-inverse);
+        }
     }
 }

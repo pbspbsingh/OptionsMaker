@@ -6,7 +6,7 @@ from typing import Optional
 from tortoise import Tortoise
 
 import config
-from db.instruments import Instrument, Price, Divergences
+from db.instruments import Price, Divergences
 from utils.prices import Divergence
 from utils.times import MY_TIME_ZONE
 
@@ -27,9 +27,6 @@ class TortoiseDBHelper:
         await Tortoise.generate_schemas()
         asyncio.create_task(self._save_divergences())
         self._logger.info("Tortoise database initialized")
-
-    async def instruments(self) -> list[Instrument]:
-        return await Instrument.all()
 
     async def all_prices(self, symbol: str, start_time) -> list[Price]:
         prices = await Price.filter(symbol=symbol, time__gte=start_time).order_by("time")

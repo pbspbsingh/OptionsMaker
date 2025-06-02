@@ -5,7 +5,7 @@ import config
 import db
 from broker import Client, Account
 from db import FakeDBHelper
-from db.instruments import Price
+from db.instruments import Price, Instrument
 
 
 class FakeSchwabClient(Client):
@@ -31,7 +31,7 @@ class FakeSchwabClient(Client):
             raise ValueError("Not a FakeDbHelper when it should be")
 
         new_prices: dict[str, list[Price]] = {}
-        instruments = await db.DB_HELPER.instruments()
+        instruments = await Instrument.all()
         limited_subscription = config.FAKE_CONFIG.get("limit_subscription", None)
         if limited_subscription is not None:
             not_subscribed = [i for i in instruments if i.symbol not in limited_subscription]
@@ -58,3 +58,6 @@ class FakeSchwabClient(Client):
                 break
             await asyncio.sleep(config.FAKE_CONFIG["emit_interval"])
         self._logger.warning("Ran out of new prices")
+
+    async def find_ticker(self, symbol: str) -> str:
+        return ""

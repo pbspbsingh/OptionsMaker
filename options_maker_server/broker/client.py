@@ -66,6 +66,16 @@ class Client(ABC):
 
         asyncio.create_task(asyncio.to_thread(handle_equity_update, data))
 
+    async def unsubscribe_chart(self, symbol: str, handler: Callable[[Price], None]):
+        if symbol in self._chart_subs:
+            self._chart_subs[symbol].remove(handler)
+            if len(self._chart_subs[symbol]) == 0:
+                self._chart_subs.pop(symbol)
+
+    @abstractmethod
+    async def find_ticker(self, symbol: str) -> str:
+        pass
+
 
 class SchwabClient(Client):
     account: Account
@@ -112,16 +122,28 @@ class SchwabClient(Client):
 
     async def subscribe_chart(self, handlers: dict[str, Callable[[Price], None]]):
         try:
-            if not self._equity_subscribed:
-                await self._stream_client.chart_equity_subs(handlers.keys())
-                self._equity_subscribed = True
-            else:
-                await self._stream_client.chart_equity_add(handlers.keys())
+            if len(handlers) > 0:
+                if not self._equity_subscribed:
+                    await self._stream_client.chart_equity_subs(handlers.keys())
+                    self._equity_subscribed = True
+                else:
+                    await self._stream_client.chart_equity_add(handlers.keys())
         except Exception as e:
             self._logger.error("Failed to subscribe to chart", e)
             raise e
 
         await super().subscribe_chart(handlers)
+
+    async def unsubscribe_chart(self, symbol: str, handler: Callable[[Price], None]):
+        try:
+            if not self._equity_subscribed:
+                raise ValueError(f"{symbol} is not subscribed")
+            await self._stream_client.chart_equity_unsubs([symbol])
+        except Exception as e:
+            self._logger.error(f"Failed to unsubscribe {symbol} from chart", e)
+            raise e
+
+        await super().unsubscribe_chart(symbol, handler)
 
     async def fetch_prices(self, symbol: str, start: datetime) -> list[Price]:
         resp = await self._client.get_price_history_every_minute(
@@ -140,3 +162,13 @@ class SchwabClient(Client):
 
     def _on_account_activity(self, data: dict[str, Any]):
         self._logger.info(f"Received account activity: {data}, {self.account}")
+
+    async def find_ticker(self, symbol: str) -> str:
+        result = await self._client.get_instruments(symbol, projection=self._client.Instrument.Projection.SYMBOL_SEARCH)
+        result.raise_for_status()
+        result = result.json()
+        if "instruments" not in result:
+            return ""
+
+        instruments = result["instruments"]
+        return instruments[0]["symbol"]

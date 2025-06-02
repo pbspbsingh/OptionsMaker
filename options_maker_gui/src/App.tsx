@@ -6,6 +6,7 @@ import Websocket from "./ws";
 import './App.scss';
 import { BrowserRouter, Route, Routes } from "react-router";
 import Ticker from "./ticker/Ticker";
+import { SnackbarProvider } from "notistack";
 
 export default function App(): JSX.Element {
     const [state, dispatcher] = useReducer(appReducer, DEFAULT_APP_STATE)
@@ -21,15 +22,17 @@ export default function App(): JSX.Element {
             <AppReducerContext value={dispatcher}>
                 <div className="app container-fluid">
                     <BrowserRouter>
-                        <aside>
-                            <Nav />
-                        </aside>
-                        <main>
-                            <Routes>
-                                <Route path="/" element={<p>Bhak sala</p>}></Route>
-                                <Route path="/ticker/:ticker" element={<Ticker />}></Route>
-                            </Routes>
-                        </main>
+                        <SnackbarProvider>
+                            <aside>
+                                <Nav />
+                            </aside>
+                            <main>
+                                <Routes>
+                                    <Route path="/" element={<p>Bhak sala</p>}></Route>
+                                    <Route path="/ticker/:ticker" element={<Ticker />}></Route>
+                                </Routes>
+                            </main>
+                        </SnackbarProvider>
                     </BrowserRouter>
                 </div>
             </AppReducerContext>

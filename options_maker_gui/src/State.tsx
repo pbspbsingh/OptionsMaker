@@ -14,6 +14,9 @@ export type AppAction = {
 } | {
     action: 'UPDATE_CHART',
     data: Symbol,
+} | {
+    action: "UNSUBSCRIBE_CHART",
+    symbol: string,
 };
 
 export type Account = {
@@ -102,6 +105,16 @@ export function appReducer(state: AppState, action: AppAction): AppState {
                     [action.data.symbol]: action.data,
                 }
             };
+        }
+        case 'UNSUBSCRIBE_CHART': {
+            const newStatate = {
+                ...state,
+                symbols: {
+                    ...state.symbols,
+                }
+            };
+            delete newStatate.symbols[action.symbol];
+            return newStatate;
         }
         default: {
             console.warn('Unexpected action', action);

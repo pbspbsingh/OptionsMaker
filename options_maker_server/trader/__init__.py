@@ -3,6 +3,8 @@ from datetime import timedelta
 
 import broker
 import db
+import websocket
+from db.instruments import Instrument
 from trader.controller import Controller, SUPPORT_RESISTANCE_DAYS
 from utils import times
 
@@ -14,7 +16,7 @@ SUBSCRIBED_INSTRUMENTS: dict[str, Controller] = {}
 async def load_subscribed_instruments():
     global SUBSCRIBED_INSTRUMENTS
 
-    instruments = await db.DB_HELPER.instruments()
+    instruments = await Instrument.all()
     _LOGGER.info(f"Processing {len(instruments)} instruments")
 
     for ins in instruments:
@@ -51,3 +53,32 @@ async def create_controller(symbol: str) -> Controller:
         f"Read from db {len(prices)} prices for {symbol}: {start.replace(tzinfo=None)} | {end.replace(tzinfo=None)}")
     divs = await db.DB_HELPER.fetch_divergences(symbol)
     return Controller(symbol, prices, divs)
+
+
+async def subscribe(symbol: str):
+    await Instrument(symbol=symbol).save()
+
+    ctr = await create_controller(symbol)
+    await broker.CLIENT.subscribe_chart({symbol: ctr.on_new_price})
+
+    global SUBSCRIBED_INSTRUMENTS
+    SUBSCRIBED_INSTRUMENTS[symbol] = ctr
+
+    if websocket.ws_count() > 0:
+        websocket.ws_publish(ctr.ws_msg())
+
+
+async def unsubscribe(symbol: str):
+    global SUBSCRIBED_INSTRUMENTS
+    ctr = SUBSCRIBED_INSTRUMENTS[symbol]
+
+    await broker.CLIENT.unsubscribe_chart(symbol, ctr.on_new_price)
+    _LOGGER.info(f"Successfully unsubscribed {symbol}")
+    SUBSCRIBED_INSTRUMENTS.pop(symbol)
+    await Instrument.filter(symbol=symbol).delete()
+
+    if websocket.ws_count() > 0:
+        websocket.ws_publish({
+            "action": "UNSUBSCRIBE_CHART",
+            "symbol": ctr.symbol,
+        })

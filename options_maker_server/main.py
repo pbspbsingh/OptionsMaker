@@ -7,6 +7,7 @@ from aiohttp import web
 import broker
 import config
 import db
+import routes
 import trader
 import websocket
 
@@ -29,6 +30,9 @@ async def main():
 
     web_app = web.Application()
     web_app.router.add_get("/api/ws", websocket.ws_handler)
+    web_app.router.add_put("/api/ticker/add", routes.add_new_ticker)
+    web_app.router.add_delete("/api/ticker/remove", routes.remove_ticker)
+
     runner = web.AppRunner(app=web_app)
     await runner.setup()
     site = web.TCPSite(runner, port=config.WEB_PORT)

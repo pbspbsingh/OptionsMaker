@@ -1,13 +1,13 @@
 from tortoise import Model
 from tortoise import fields
 
-from utils.times import MY_TIME_ZONE
+from utils.times import MY_TIME_ZONE, now
 
 
 class Instrument(Model):
     id = fields.IntField(primary_key=True)
     symbol = fields.CharField(max_length=8, null=False, unique=True)
-    inserted_at = fields.DatetimeField(null=False)
+    inserted_at = fields.DatetimeField(null=False, default=now())
 
     class Meta:
         table = "instruments"
