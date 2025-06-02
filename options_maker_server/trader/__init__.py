@@ -29,7 +29,7 @@ async def load_subscribed_instruments():
 
 
 async def create_controller(symbol: str) -> Controller:
-    start_time = times.days_ago(SUPPORT_RESISTANCE_DAYS)
+    start_time = times.days_ago(14)
     price = await db.DB_HELPER.latest_prices(symbol, start_time)
     if price:
         _LOGGER.info(f"Fetched the last {price} for {symbol}")
@@ -37,8 +37,8 @@ async def create_controller(symbol: str) -> Controller:
 
     new_prices = await broker.CLIENT.fetch_prices(symbol, start_time)
     _LOGGER.info(f"Fetched {len(new_prices)} new prices")
-    if len(new_prices) > 0:
-        await db.DB_HELPER.save_prices(new_prices)
+
+    await db.DB_HELPER.save_prices(new_prices)
 
     start_time = times.days_ago(SUPPORT_RESISTANCE_DAYS)
     prices = await db.DB_HELPER.all_prices(symbol, start_time)

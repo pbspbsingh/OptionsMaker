@@ -22,6 +22,10 @@ export default function Nav(): JSX.Element {
                 <p><b>Balance:</b> ${fmt(account.balance)}</p>
             </div>
             <hr />
+            <ul className="main-nav">
+                <li><NavLink to="/">Home</NavLink></li>
+                <li><NavLink to="/trades">Trades</NavLink></li>
+            </ul>
             <div className="tickers">
                 <h6 className="uppercase">Tickers</h6>
                 <ul className="tickers">

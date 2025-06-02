@@ -1,7 +1,7 @@
 .left-nav {
     width: 280px;
     padding-top: 1rem;
-    min-height: 100vh;
+    height: 100vh;
     overflow-x: hidden;
     overflow-y: auto;
 
@@ -11,6 +11,24 @@
 
     h6 {
         margin-bottom: .4rem;
+    }
+
+    hr {
+        margin-bottom: .2rem;
+    }
+
+    .main-nav {
+        margin-bottom: .2rem;
+
+        a {
+            padding-block: .2rem;
+            text-decoration: none;
+
+            &.active {
+                color: var(--pico-color);
+                text-decoration: underline;
+            }
+        }
     }
 
     .tickers {
@@ -36,12 +54,12 @@
 
             &:hover {
                 text-decoration: none;
-                // border-color: var(--pico-secondary-border);
                 background-color: var(--pico-secondary-focus);
                 color: var(--pico-primary-inverse);
             }
         }
     }
+
     .bottom-form {
         position: fixed;
         width: 280px;

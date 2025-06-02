@@ -44,11 +44,12 @@ class TortoiseDBHelper:
         return latest
 
     async def save_prices(self, prices: list[Price]):
-        await Price.bulk_create(
-            objects=prices,
-            on_conflict=["symbol", "time"],
-            update_fields=["open", "high", "low", "close", "volume"],
-        )
+        if len(prices) > 0:
+            await Price.bulk_create(
+                objects=prices,
+                on_conflict=["symbol", "time"],
+                update_fields=["open", "high", "low", "close", "volume"],
+            )
 
     async def fetch_divergences(self, symbol: str) -> dict[str, list[Divergence]]:
         row = await Divergences.filter(symbol=symbol, day=datetime.date.today()).first()
