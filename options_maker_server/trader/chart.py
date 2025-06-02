@@ -4,18 +4,21 @@ import numpy as np
 import pandas as pd
 import talib
 
+import db
 from utils.prices import Divergence, agg_prices, trim_prices, compute_divergence
 
 
 class Chart:
+    symbol: str
     agg_time: str
     prices: pd.DataFrame
     _divergences: list[Divergence]
 
-    def __init__(self, time_frame: str):
+    def __init__(self, symbol, time_frame: str, divergences: list[Divergence]):
+        self.symbol = symbol
         self.agg_time = time_frame
         self.prices = pd.DataFrame()
-        self._divergences = []
+        self._divergences = divergences
 
     def update(self, new_prices: pd.DataFrame):
         if len(self._divergences) > 0 and self._divergences[-1].end.date() < new_prices.index[-1].date():
@@ -30,6 +33,8 @@ class Chart:
         if divergence is not None:
             self._clear_overlapping(divergence)
             self._divergences.append(divergence)
+
+            db.DB_HELPER.save_divergences(self.symbol, self.agg_time, self._divergences)
 
     def _clear_overlapping(self, divergence: Divergence):
         while len(self._divergences) > 0:

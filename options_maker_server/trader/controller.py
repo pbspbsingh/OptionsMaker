@@ -6,10 +6,11 @@ import pandas as pd
 import websocket as ws
 from db.instruments import Price
 from trader.chart import Chart
-from utils.prices import prices_to_df, agg_prices, compute_price_levels, PriceLevel
+from utils.prices import prices_to_df, agg_prices, compute_price_levels, PriceLevel, Divergence
 
 SUPPORT_RESISTANCE_DAYS = 7
 PRICE_LEVEL_TIME_FRAME = "60min"
+CHARTS = ["5Min", "30Min"]
 
 
 class Controller:
@@ -18,13 +19,13 @@ class Controller:
     _price_levels: list[PriceLevel]
     _charts: list[Chart]
 
-    def __init__(self, symbol: str, prices: list[Price]):
+    def __init__(self, symbol: str, prices: list[Price], divs: dict[str, list[Divergence]]):
         self.symbol = symbol
         self._logger = logging.getLogger(f"Controller[{symbol}]")
 
         self._lower_time_frame_prices = prices_to_df(prices)
         self._price_levels = []
-        self._charts = [Chart("5Min"), Chart("30Min")]
+        self._charts = [Chart(symbol, time, divs.get(time, [])) for time in CHARTS]
 
         self._update_prices()
 

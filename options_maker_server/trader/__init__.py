@@ -49,4 +49,5 @@ async def create_controller(symbol: str) -> Controller:
     end = prices[-1].time
     _LOGGER.info(
         f"Read from db {len(prices)} prices for {symbol}: {start.replace(tzinfo=None)} | {end.replace(tzinfo=None)}")
-    return Controller(symbol, prices)
+    divs = await db.DB_HELPER.fetch_divergences(symbol)
+    return Controller(symbol, prices, divs)

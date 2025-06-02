@@ -1,3 +1,4 @@
+import asyncio
 import datetime
 import logging
 from typing import Optional
@@ -5,7 +6,8 @@ from typing import Optional
 from tortoise import Tortoise
 
 import config
-from db.instruments import Instrument, Price
+from db.instruments import Instrument, Price, Divergences
+from utils.prices import Divergence
 from utils.times import MY_TIME_ZONE
 
 
@@ -13,6 +15,7 @@ class TortoiseDBHelper:
 
     def __init__(self):
         self._logger = logging.getLogger(self.__class__.__name__)
+        self._div_queue = asyncio.Queue()
 
     async def init_connection(self):
         await Tortoise.init(
@@ -22,6 +25,7 @@ class TortoiseDBHelper:
             }
         )
         await Tortoise.generate_schemas()
+        asyncio.create_task(self._save_divergences())
         self._logger.info("Tortoise database initialized")
 
     async def instruments(self) -> list[Instrument]:
@@ -45,6 +49,36 @@ class TortoiseDBHelper:
             on_conflict=["symbol", "time"],
             update_fields=["open", "high", "low", "close", "volume"],
         )
+
+    async def fetch_divergences(self, symbol: str) -> dict[str, list[Divergence]]:
+        row = await Divergences.filter(symbol=symbol, day=datetime.date.today()).first()
+        if row is None:
+            return {}
+
+        result = {}
+        for agg, arr in row.divergences.items():
+            divs = [Divergence.from_json(x) for x in arr]
+            result[agg] = divs
+        return result
+
+    def save_divergences(self, symbol: str, agg: str, divergences: list[Divergence]):
+        try:
+            if len(divergences) > 0:
+                self._div_queue.put_nowait((symbol, agg, divergences))
+        except asyncio.QueueFull:
+            self._logger.warning(f"Failed to save {len(divergences)} divergences for {symbol}")
+
+    async def _save_divergences(self):
+        while True:
+            symbol, agg, divs = await self._div_queue.get()
+            json = [d.to_json() for d in divs]
+            today = divs[-1].end.date()
+            row = await Divergences.filter(symbol=symbol, day=today).first()
+            if row is None:
+                row = Divergences(symbol=symbol, day=today, divergences={agg: json})
+            else:
+                row.divergences[agg] = json
+            await row.save()
 
 
 class FakeDBHelper(TortoiseDBHelper):
@@ -72,6 +106,12 @@ class FakeDBHelper(TortoiseDBHelper):
             price.time = price.time.astimezone(MY_TIME_ZONE)
         return prices
 
+    async def save_prices(self, prices: list[Price]):
+        self._logger.info(f"Pretending to save {len(prices)} prices")
 
-async def save_prices(self, prices: list[Price]):
-    self._logger.info(f"Pretending to save {len(prices)} prices")
+    async def fetch_divergences(self, symbol: str) -> dict[str, list[Divergence]]:
+        return {}
+
+    async def _save_divergences(self):
+        while True:
+            await self._div_queue.get()

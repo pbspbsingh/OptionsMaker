@@ -30,3 +30,14 @@ class Price(Model):
     def __str__(self):
         time = self.time.astimezone(MY_TIME_ZONE).replace(tzinfo=None)
         return f"{self.symbol}({time})[Open: {self.open}, Close: {self.close}, High: {self.high}, Low: {self.low}, Volume: {self.volume}]"
+
+
+class Divergences(Model):
+    id = fields.BigIntField(primary_key=True)
+    symbol = fields.CharField(max_length=8, null=False)
+    day = fields.DateField(null=False)
+    divergences = fields.JSONField(null=True)
+
+    class Meta:
+        table = "divergences"
+        unique_together = ("symbol", "day")

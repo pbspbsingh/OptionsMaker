@@ -74,7 +74,7 @@ class PriceLevel:
         return {
             "price": self.price,
             "weight": self.weight,
-            "at": self.at.tz_localize(None).timestamp(),
+            "at": int(self.at.tz_localize(None).timestamp()),
         }
 
     def __str__(self):
@@ -164,10 +164,10 @@ class Divergence:
         self.end.timestamp()
         return {
             "div_type": self.div_type.name,
-            "start": self.start.tz_localize(None).timestamp(),
+            "start": int(self.start.tz_localize(None).timestamp()),
             "start_price": self.start_price,
             "start_rsi": self.start_rsi,
-            "end": self.end.tz_localize(None).timestamp(),
+            "end": int(self.end.tz_localize(None).timestamp()),
             "end_price": self.end_price,
             "end_rsi": self.end_rsi,
         }
@@ -176,6 +176,19 @@ class Divergence:
         start = self.start
         end = self.end
         return f"[{self.div_type.name} {start}/{end}(${self.start_price:.2f}/{self.start_rsi:.2f})-(${self.end_price:.2f}/{self.end_rsi:.2f})]"
+
+    @classmethod
+    def from_json(cls, data: dict[str, Any]) -> "Divergence":
+        is_bullish = data["div_type"] == DivergenceType.Bullish.name
+        return Divergence(
+            div_type=DivergenceType.Bullish if is_bullish else DivergenceType.Bearish,
+            start=pd.to_datetime(data["end"], unit="s").tz_localize(MY_TIME_ZONE),
+            start_price=data["start_price"],
+            start_rsi=data["start_rsi"],
+            end=pd.to_datetime(data["end"], unit="s").tz_localize(MY_TIME_ZONE),
+            end_price=data["end_price"],
+            end_rsi=data["end_rsi"],
+        )
 
 
 def compute_divergence(df: pd.DataFrame, div_order: int = 3) -> Optional[Divergence]:

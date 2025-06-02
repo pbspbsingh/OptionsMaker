@@ -1,5 +1,5 @@
 .ticker {
-    
+
     header {
         height: 80px;
         padding: 1rem;
@@ -9,8 +9,16 @@
         justify-content: space-between;
         box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.2);
 
-        > * {
+        &>* {
             margin: 0;
+        }
+    }
+
+    .grid {
+        @media screen and (max-width: 1600px) {
+            &>* {
+                grid-column: 1 / -1;
+            }
         }
     }
 }
