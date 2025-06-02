@@ -32,6 +32,7 @@ async def main():
     web_app.router.add_get("/api/ws", websocket.ws_handler)
     web_app.router.add_put("/api/ticker/add", routes.add_new_ticker)
     web_app.router.add_delete("/api/ticker/remove", routes.remove_ticker)
+    web_app.router.add_get("/{tail:.*}", routes.fallback)
 
     runner = web.AppRunner(app=web_app)
     await runner.setup()

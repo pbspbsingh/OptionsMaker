@@ -1,5 +1,5 @@
+import asyncio
 import logging
-from asyncio import Queue, QueueFull
 from logging import Logger
 from typing import Any
 
@@ -11,7 +11,7 @@ import trader
 
 _ws_id = 1
 
-_WS_QUEUES: dict[int, Queue] = {}
+_WS_QUEUES: dict[int, asyncio.Queue] = {}
 
 
 def ws_count() -> int:
@@ -22,15 +22,15 @@ def ws_publish(msg: Any):
     for ws_id, queue in _WS_QUEUES.items():
         try:
             queue.put_nowait(msg)
-        except QueueFull as qf:
-            logging.warning(f"Queue is full for {ws_id}: {qf}")
+        except asyncio.QueueFull as qf:
+            logging.getLogger(__name__).warning(f"Queue is full for {ws_id}: {qf}")
 
 
 async def ws_handler(request: web.Request) -> web.WebSocketResponse:
     ws_id, logger = _get_logger()
     logger.info("Got a new websocket request")
 
-    queue = Queue(maxsize=4)
+    queue = asyncio.Queue()
     _WS_QUEUES[ws_id] = queue
 
     ws = web.WebSocketResponse()
@@ -56,27 +56,13 @@ async def ws_handler(request: web.Request) -> web.WebSocketResponse:
     return ws
 
 
-async def _dispatch_ws_msgs(ws: WebSocketResponse, queue: Queue, logger: Logger):
+async def _dispatch_ws_msgs(ws: WebSocketResponse, queue: asyncio.Queue, logger: Logger):
     while True:
         msg = await queue.get()
         await ws.send_json(msg)
-    # while True:
-    #     done, pending = await asyncio.wait(
-    #         [asyncio.create_task(queue.get()), asyncio.create_task(ws.receive())],
-    #         return_when=asyncio.FIRST_COMPLETED,
-    #     )
-    #     for task in done:
-    #         result = task.result()
-    #         if isinstance(result, WSMessage):
-    #             if result.type == WSMsgType.CLOSE:
-    #                 return
-    #         else:
-    #             logger.info("Got an unexpected message:", result)
 
 
 def _get_logger():
     global _ws_id
     _ws_id += 1
     return _ws_id, logging.getLogger(f"{__name__}[{_ws_id}]")
-
-# def ws_publish()

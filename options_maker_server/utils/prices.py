@@ -182,7 +182,7 @@ class Divergence:
         is_bullish = data["div_type"] == DivergenceType.Bullish.name
         return Divergence(
             div_type=DivergenceType.Bullish if is_bullish else DivergenceType.Bearish,
-            start=pd.to_datetime(data["end"], unit="s").tz_localize(MY_TIME_ZONE),
+            start=pd.to_datetime(data["start"], unit="s").tz_localize(MY_TIME_ZONE),
             start_price=data["start_price"],
             start_rsi=data["start_rsi"],
             end=pd.to_datetime(data["end"], unit="s").tz_localize(MY_TIME_ZONE),

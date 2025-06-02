@@ -58,6 +58,10 @@ class Client(ABC):
                         prices[symbol] = prices.get(symbol, []) + [price]
 
                 for symbol, price_list in prices.items():
+                    if symbol not in self._chart_subs:
+                        self._logger.warning(f"Received price({len(price_list)}) for {symbol} but it's not subscribed")
+                        continue
+
                     for handler in self._chart_subs[symbol]:
                         for price in price_list:
                             handler(price)
