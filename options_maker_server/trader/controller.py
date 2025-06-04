@@ -39,8 +39,8 @@ class Controller:
         self._update_prices()
 
     def _update_prices(self):
-        price_levels_prices = agg_prices(self._lower_time_frame_prices, PRICE_LEVEL_TIME_FRAME)
-        self._price_levels = compute_price_levels(price_levels_prices, 6)
+        # price_levels_prices = agg_prices(self._lower_time_frame_prices, PRICE_LEVEL_TIME_FRAME)
+        # self._price_levels = compute_price_levels(price_levels_prices, 6)
 
         for chart in self._charts:
             chart.update(self._lower_time_frame_prices)
