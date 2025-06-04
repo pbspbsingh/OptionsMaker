@@ -10,3 +10,4 @@ schwab_token.json
 config.py
 .venv
 
+schwab_token.json.old

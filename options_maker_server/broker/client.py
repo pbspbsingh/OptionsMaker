@@ -31,7 +31,7 @@ class Client(ABC):
 
     async def subscribe_chart(self, handlers: dict[str, Callable[[Price], None]]):
         for symbol, handler in handlers.items():
-            if symbol not in self._chart_subs or len(self._chart_subs[symbol]) == 0:
+            if symbol not in self._chart_subs:
                 self._chart_subs[symbol] = []
 
             self._chart_subs[symbol].append(handler)
@@ -75,6 +75,8 @@ class Client(ABC):
             self._chart_subs[symbol].remove(handler)
             if len(self._chart_subs[symbol]) == 0:
                 self._chart_subs.pop(symbol)
+        else:
+            self._logger.warning(f"{symbol} is already not subscribed")
 
     @abstractmethod
     async def find_ticker(self, symbol: str) -> str:
@@ -126,12 +128,13 @@ class SchwabClient(Client):
 
     async def subscribe_chart(self, handlers: dict[str, Callable[[Price], None]]):
         try:
-            if len(handlers) > 0:
+            equities = [symbol for symbol in handlers.keys() if len(self._chart_subs.get(symbol, [])) == 0]
+            if len(equities) > 0:
                 if not self._equity_subscribed:
-                    await self._stream_client.chart_equity_subs(handlers.keys())
+                    await self._stream_client.chart_equity_subs(equities)
                     self._equity_subscribed = True
                 else:
-                    await self._stream_client.chart_equity_add(handlers.keys())
+                    await self._stream_client.chart_equity_add(equities)
         except Exception as e:
             self._logger.error("Failed to subscribe to chart", e)
             raise e
@@ -139,15 +142,15 @@ class SchwabClient(Client):
         await super().subscribe_chart(handlers)
 
     async def unsubscribe_chart(self, symbol: str, handler: Callable[[Price], None]):
+        await super().unsubscribe_chart(symbol, handler)
         try:
             if not self._equity_subscribed:
                 raise ValueError(f"{symbol} is not subscribed")
-            await self._stream_client.chart_equity_unsubs([symbol])
+            if len(self._chart_subs.get(symbol, [])) == 0:
+                await self._stream_client.chart_equity_unsubs([symbol])
         except Exception as e:
             self._logger.error(f"Failed to unsubscribe {symbol} from chart", e)
             raise e
-
-        await super().unsubscribe_chart(symbol, handler)
 
     async def fetch_prices(self, symbol: str, start: datetime) -> list[Price]:
         resp = await self._client.get_price_history_every_minute(
