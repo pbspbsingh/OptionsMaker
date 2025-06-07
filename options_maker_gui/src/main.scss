@@ -1,7 +1,6 @@
 $primary: #ff0000;
 
-@use "../node_modules/@picocss/pico/scss/pico.scss" with (
-    $semantic-root-element: "#root",
+@use "../node_modules/@picocss/pico/scss/pico.scss" with ($semantic-root-element: "#root",
     $enable-semantic-container: true,
     $enable-classes: true,
     $theme-color: "indigo"
@@ -16,4 +15,8 @@ $primary: #ff0000;
         padding: .2rem .4rem;
         font-size: .8rem;
     }
+}
+
+button {
+    padding: .4rem .8rem;
 }

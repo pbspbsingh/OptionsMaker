@@ -9,7 +9,7 @@ from aiohttp.web_ws import WebSocketResponse
 import broker
 import trader
 
-_ws_id = 1
+_ws_id = 0
 
 _WS_QUEUES: dict[int, asyncio.Queue] = {}
 

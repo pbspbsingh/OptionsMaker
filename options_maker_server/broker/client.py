@@ -5,10 +5,11 @@ from abc import abstractmethod, ABC
 from datetime import datetime
 from typing import Callable, Any
 
+from pydantic import ValidationError
 from schwab.client import AsyncClient
 from schwab.streaming import StreamClient
 
-from broker.models import Account, price_from_json
+from broker.models import Account, price_from_json, OptionResponse, Quote
 from db.instruments import Price
 
 
@@ -16,18 +17,20 @@ class Client(ABC):
     account: Account
     _logger: logging.Logger
     _chart_subs: dict[str, list[Callable[[Price], None]]]
+    _quote_subs: dict[str, Callable[[Quote], None]]
 
     def __init__(self):
         self._logger = logging.getLogger(type(self).__name__)
         self._chart_subs = {}
+        self._quote_subs = {}
 
     @abstractmethod
     async def init_client(self):
-        raise NotImplementedError()
+        pass
 
     @abstractmethod
     async def fetch_prices(self, symbol: str, start: datetime) -> list[Price]:
-        raise NotImplementedError("fetch_prices is not implemented")
+        pass
 
     async def subscribe_chart(self, handlers: dict[str, Callable[[Price], None]]):
         for symbol, handler in handlers.items():
@@ -78,8 +81,47 @@ class Client(ABC):
         else:
             self._logger.warning(f"{symbol} is already not subscribed")
 
+    async def subscribe_quotes(self, handlers: dict[str, Callable[[Quote], None]]):
+        for symbol, handler in handlers.items():
+            if symbol not in self._quote_subs:
+                self._quote_subs[symbol] = handler
+            else:
+                self._logger.warning(f"{symbol} is already subscribed for level one quotes")
+
+    def _on_quotes(self, data: dict[str, Any]):
+        if data.get("service", "") != "LEVELONE_EQUITIES" or data.get("command", "") != "SUBS" or len(
+                data.get("content", [])) == 0:
+            return
+        for item in data["content"]:
+            try:
+                quote = Quote.model_validate(item)
+                if quote.symbol in self._quote_subs:
+                    self._quote_subs[quote.symbol](quote)
+                else:
+                    self._logger.warning(f"No level one quote handler found for {quote.symbol}")
+            except ValidationError:
+                # self._logger.warning(f"Failed to parse quote: {item}", e)
+                self._logger.warning(f"{item} not parsed")
+
+    async def unsubscribe_quotes(self, symbol: str):
+        if symbol in self._quote_subs:
+            self._quote_subs.pop(symbol)
+        else:
+            self._logger.warning(f"{symbol} is not subscribed for level one quotes")
+
     @abstractmethod
     async def find_ticker(self, symbol: str) -> str:
+        pass
+
+    @abstractmethod
+    async def get_options(
+            self,
+            *,
+            symbol: str,
+            count: int,
+            from_date: datetime.date,
+            to_date: datetime.date,
+    ) -> OptionResponse:
         pass
 
 
@@ -89,6 +131,7 @@ class SchwabClient(Client):
     _client: AsyncClient
     _stream_client: StreamClient
     _equity_subscribed: bool
+    _quotes_subscribed: bool
 
     def __init__(self, account: Account, client: AsyncClient, stream_client: StreamClient):
         super().__init__()
@@ -97,6 +140,7 @@ class SchwabClient(Client):
         self._client = client
         self._stream_client = stream_client
         self._equity_subscribed = False
+        self._quotes_subscribed = False
 
     async def init_client(self):
         account_info = await self._client.get_account(self.account.hash)
@@ -121,6 +165,7 @@ class SchwabClient(Client):
 
         self._stream_client.add_account_activity_handler(self._on_account_activity)
         self._stream_client.add_chart_equity_handler(self._on_chart_equity)
+        self._stream_client.add_level_one_equity_handler(self._on_quotes)
 
         await self._stream_client.account_activity_sub()
 
@@ -145,11 +190,37 @@ class SchwabClient(Client):
         await super().unsubscribe_chart(symbol, handler)
         try:
             if not self._equity_subscribed:
-                raise ValueError(f"{symbol} is not subscribed")
+                raise ValueError(f"No symbol is subscribed to charts")
             if len(self._chart_subs.get(symbol, [])) == 0:
                 await self._stream_client.chart_equity_unsubs([symbol])
         except Exception as e:
             self._logger.error(f"Failed to unsubscribe {symbol} from chart", e)
+            raise e
+
+    async def subscribe_quotes(self, handlers: dict[str, Callable]):
+        try:
+            equities = [symbol for symbol in handlers.keys() if symbol not in self._quote_subs]
+            if len(equities) > 0:
+                if not self._quotes_subscribed:
+                    await self._stream_client.level_one_equity_subs(equities)
+                    self._quotes_subscribed = True
+                else:
+                    await self._stream_client.level_one_equity_add(equities)
+        except Exception as e:
+            self._logger.error(f"Failed to subscribe {handlers.keys()} to quotes", e)
+            raise e
+
+        await super().subscribe_quotes(handlers)
+
+    async def unsubscribe_quotes(self, symbol: str):
+        await super().unsubscribe_quotes(symbol)
+        try:
+            if not self._quotes_subscribed:
+                raise ValueError(f"No symbols is subscribed to level one quotes")
+            if symbol not in self._quote_subs:
+                await self._stream_client.level_one_equity_unsubs([symbol])
+        except Exception as e:
+            self._logger.error(f"Failed to unsubscribe {symbol} from level one quotes", e)
             raise e
 
     async def fetch_prices(self, symbol: str, start: datetime) -> list[Price]:
@@ -179,3 +250,21 @@ class SchwabClient(Client):
 
         instruments = result["instruments"]
         return instruments[0]["symbol"]
+
+    async def get_options(
+            self,
+            *,
+            symbol: str,
+            count: int,
+            from_date: datetime.date,
+            to_date: datetime.date,
+    ) -> OptionResponse:
+        response = await self._client.get_option_chain(
+            symbol=symbol,
+            contract_type=self._client.Options.ContractType.ALL,
+            strike_count=count,
+            from_date=from_date,
+            to_date=to_date,
+        )
+        response.raise_for_status()
+        return OptionResponse.model_validate(response.json())

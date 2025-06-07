@@ -36,6 +36,16 @@ class Chart:
 
             db.DB_HELPER.save_divergences(self.symbol, self.agg_time, self._divergences)
 
+    @property
+    def atr(self) -> float:
+        # noinspection PyTypeChecker
+        atr: pd.Series = talib.ATR(
+            high=self.prices.high,
+            low=self.prices.low,
+            close=self.prices.close,
+        )
+        return atr.iloc[-1]
+
     def _clear_overlapping(self, divergence: Divergence):
         while len(self._divergences) > 0:
             last = self._divergences[-1]
@@ -49,6 +59,6 @@ class Chart:
         prices["time"] = prices.index.tz_localize(None).astype("int64") // 10 ** 9
         prices.replace([np.nan], None, inplace=True)
         return {
-            "prices": prices.to_dict(orient="records", ),
+            "prices": prices.to_dict(orient="records"),
             "divergences": [d.to_json() for d in self._divergences]
         }

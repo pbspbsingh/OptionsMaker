@@ -1,5 +1,6 @@
 import logging
 import mimetypes
+import time
 
 import aiofiles
 import aiofiles.os as aios_os
@@ -8,6 +9,9 @@ from aiohttp import web
 import broker
 import config
 import trader
+from utils.times import options_expiry_range
+
+_LOGGER = logging.getLogger(__name__)
 
 
 async def add_new_ticker(request: web.Request) -> web.Response:
@@ -20,7 +24,7 @@ async def add_new_ticker(request: web.Request) -> web.Response:
     if valid_ticker in trader.SUBSCRIBED_INSTRUMENTS:
         return web.Response(status=400, text=f"{valid_ticker} is already subscribed")
 
-    logging.getLogger(__name__).info(f"Adding ticker {valid_ticker}")
+    _LOGGER.info(f"Adding ticker {valid_ticker}")
     await trader.subscribe(valid_ticker)
 
     return web.Response(status=200, text=f"{ticker} added successfully")
@@ -33,6 +37,26 @@ async def remove_ticker(request: web.Request) -> web.Response:
     await trader.unsubscribe(ticker)
 
     return web.Response(status=200, text=f"{ticker} removed successfully")
+
+
+async def get_options(request: web.Request) -> web.Response:
+    start_time = time.process_time_ns()
+    ticker: str = request.url.query["ticker"]
+    start, end = options_expiry_range()
+    opt_res = await broker.CLIENT.get_options(symbol=ticker, count=5, from_date=start, to_date=end)
+    if opt_res.status != "SUCCESS":
+        raise ValueError("Invalid response, status: {response.status}")
+    if len(opt_res.call_exp_date_map) == 0 or len(opt_res.put_exp_date_map) == 0:
+        raise ValueError(
+            f"For {ticker}({start} to {end}) got {len(opt_res.call_exp_date_map)} calls & {len(opt_res.put_exp_date_map)} puts")
+
+    response = {
+        "calls": next(iter(opt_res.call_exp_date_map.values())).model_dump(),
+        "puts": next(iter(opt_res.put_exp_date_map.values())).model_dump(),
+    }
+    end_time = time.process_time_ns()
+    _LOGGER.info(f"Fetched options for {ticker} in {(end_time - start_time) // 1e6} ms")
+    return web.json_response(response)
 
 
 async def fallback(request: web.Request) -> web.Response:

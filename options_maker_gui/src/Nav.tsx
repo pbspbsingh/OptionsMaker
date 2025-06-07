@@ -51,7 +51,10 @@ export default function Nav(): JSX.Element {
         if (target.nodeName !== "A") {
             return;
         }
-        setSelectedContextMenuItem(target.innerHTML.trim());
+        const symbol = target.querySelector('.symbol')?.innerHTML.trim();
+        if (symbol == null) return;
+
+        setSelectedContextMenuItem(symbol);
         setContextMenuLoc({ left: e.pageX, top: e.pageY });
         setShowContextMenu(true);
     };
@@ -123,7 +126,7 @@ export default function Nav(): JSX.Element {
                     {tickers.map(symbol => (
                         <li key={symbol}>
                             <NavLink to={`/ticker/${symbol}`}>
-                                {symbol}
+                                <span className="symbol">{symbol}</span> | ${symbols[symbol].atr?.toFixed(2)}
                             </NavLink>
                         </li>
                     ))}
@@ -137,6 +140,7 @@ export default function Nav(): JSX.Element {
                         placeholder="Add new ticker"
                         className="small"
                         value={newTicker}
+                        disabled={addingNewTicker}
                         onChange={e => setNewTicker(e.target.value)} />
                     <input type="submit" value="Add" disabled={addingNewTicker} />
                 </form>

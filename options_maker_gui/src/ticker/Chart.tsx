@@ -15,8 +15,8 @@ import { useDivergences, usePriceLevels, useRsiLine } from "./chartComponents";
 
 export interface ChartProps {
     prices: Price[],
-    priceLevels: PriceLevel[],
     divergences?: Divergence[],
+    priceLevels?: PriceLevel[],
 }
 
 export default function Chart({ prices, priceLevels, divergences }: ChartProps) {
@@ -28,7 +28,7 @@ export default function Chart({ prices, priceLevels, divergences }: ChartProps) 
     useEffect(() => {
         if (divRef.current == null) return;
 
-        console.debug('Initializing chart with', prices.length, priceLevels.length);
+        console.debug('Initializing chart with', prices.length, priceLevels?.length, divergences?.length);
         chartRef.current = createChart(divRef.current, CHART_OPTIONS);;
         candlesRef.current = chartRef.current.addSeries(CandlestickSeries);
         candlesRef.current.applyOptions({
@@ -73,8 +73,8 @@ export default function Chart({ prices, priceLevels, divergences }: ChartProps) 
     }, [chartRef, prices]);
 
     useRsiLine(chartRef, prices);
-    usePriceLevels(candlesRef, priceLevels);
     useDivergences(chartRef, divergences ?? []);
+    usePriceLevels(candlesRef, priceLevels ?? []);
 
     return <div ref={divRef} />;
 }

@@ -6,31 +6,39 @@ import db
 import websocket
 from db.instruments import Instrument
 from trader.controller import Controller, SUPPORT_RESISTANCE_DAYS
+from trader.trades_manager import TradesManager
 from utils import times
 
 _LOGGER = logging.getLogger(__name__)
 
 SUBSCRIBED_INSTRUMENTS: dict[str, Controller] = {}
+TRADES_MANAGERS: dict[str, TradesManager] = {}
 
 
 async def load_subscribed_instruments():
     global SUBSCRIBED_INSTRUMENTS
+    global TRADES_MANAGERS
 
     instruments = await Instrument.all()
     _LOGGER.info(f"Processing {len(instruments)} instruments")
 
     for ins in instruments:
         try:
-            SUBSCRIBED_INSTRUMENTS[ins.symbol] = await create_controller(ins.symbol)
+            SUBSCRIBED_INSTRUMENTS[ins.symbol] = await _create_controller(ins.symbol)
+            TRADES_MANAGERS[ins.symbol] = await _create_trades_manager(ins.symbol)
         except Exception as e:
             _LOGGER.error(f"Failed to process {ins.symbol}", e)
 
     handlers = {sym: ctr.on_new_price for sym, ctr in SUBSCRIBED_INSTRUMENTS.items()}
-    _LOGGER.info(f"Subscribing to {handlers.keys()}")
     await broker.CLIENT.subscribe_chart(handlers)
+    _LOGGER.info(f"Subscribing to {len(handlers)} instruments to equity charts")
+
+    handlers = {sym: tm.on_quote for sym, tm in TRADES_MANAGERS.items()}
+    await broker.CLIENT.subscribe_quotes(handlers)
+    _LOGGER.info(f"Subscribing to {len(handlers)} instruments to level one quotes")
 
 
-async def create_controller(symbol: str) -> Controller:
+async def _create_controller(symbol: str) -> Controller:
     start_time = times.days_ago(14)
     price = await db.DB_HELPER.latest_prices(symbol, start_time)
     if price:
@@ -55,10 +63,14 @@ async def create_controller(symbol: str) -> Controller:
     return Controller(symbol, prices, divs)
 
 
+async def _create_trades_manager(symbol: str) -> TradesManager:
+    return TradesManager(symbol)
+
+
 async def subscribe(symbol: str):
     await Instrument(symbol=symbol).save()
 
-    ctr = await create_controller(symbol)
+    ctr = await _create_controller(symbol)
     await broker.CLIENT.subscribe_chart({symbol: ctr.on_new_price})
 
     global SUBSCRIBED_INSTRUMENTS
@@ -67,18 +79,28 @@ async def subscribe(symbol: str):
     if websocket.ws_count() > 0:
         websocket.ws_publish(ctr.ws_msg())
 
+    tm = await _create_trades_manager(symbol)
+    await broker.CLIENT.subscribe_quotes({symbol: tm.on_quote})
+
+    global TRADES_MANAGERS
+    TRADES_MANAGERS[symbol] = tm
+    _LOGGER.info(f"Successfully subscribed {symbol} to charts and level one quotes")
+
 
 async def unsubscribe(symbol: str):
     global SUBSCRIBED_INSTRUMENTS
-    ctr = SUBSCRIBED_INSTRUMENTS[symbol]
-
+    ctr = SUBSCRIBED_INSTRUMENTS.pop(symbol)
     await broker.CLIENT.unsubscribe_chart(symbol, ctr.on_new_price)
-    _LOGGER.info(f"Successfully unsubscribed {symbol}")
-    SUBSCRIBED_INSTRUMENTS.pop(symbol)
-    await Instrument.filter(symbol=symbol).delete()
 
     if websocket.ws_count() > 0:
         websocket.ws_publish({
             "action": "UNSUBSCRIBE_CHART",
             "symbol": ctr.symbol,
         })
+
+    global TRADES_MANAGERS
+    TRADES_MANAGERS.pop(symbol)
+    await broker.CLIENT.unsubscribe_quotes(symbol)
+
+    await Instrument.filter(symbol=symbol).delete()
+    _LOGGER.info(f"Successfully unsubscribed {symbol} from charts and level one quotes")

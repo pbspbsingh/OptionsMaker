@@ -52,6 +52,7 @@ class Controller:
         return {
             "symbol": self.symbol,
             "last_updated": self._lower_time_frame_prices.index[-1].timestamp(),
+            "atr": self._charts[-1].atr if self._charts else None,
             "price_levels": [pl.to_json() for pl in self._price_levels],
             "charts": {c.agg_time: c.to_json() for c in self._charts},
         }

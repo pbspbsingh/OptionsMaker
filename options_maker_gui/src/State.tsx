@@ -17,6 +17,9 @@ export type AppAction = {
 } | {
     action: "UNSUBSCRIBE_CHART",
     symbol: string,
+} | {
+    action: "UPDATE_QUOTE",
+    quote: Quote,
 };
 
 export type Account = {
@@ -60,9 +63,24 @@ export type Chart = {
 export type Symbol = {
     symbol: string,
     last_updated: number,
+    atr?: number,
     price_levels: PriceLevel[],
     charts: { [time_frame: string]: Chart },
 }
+
+export type Quote = {
+    symbol: string,
+    ask_price?: number,
+    bid_price?: number,
+    last_price?: number,
+};
+
+export type AppState = {
+    connected: boolean,
+    account: Account,
+    symbols: { [key: string]: Symbol },
+    quotes: { [key: string]: Quote },
+};
 
 export const DEFAULT_APP_STATE: AppState = {
     connected: false,
@@ -72,13 +90,10 @@ export const DEFAULT_APP_STATE: AppState = {
         balance: 0,
     },
     symbols: {},
+    quotes: {},
 };
 
-export type AppState = {
-    connected: boolean,
-    account: Account,
-    symbols: { [key: string]: Symbol },
-};
+
 
 export const AppStateContext = createContext<AppState>(DEFAULT_APP_STATE);
 export const AppReducerContext = createContext<ActionDispatch<[AppAction]>>(() => { });
@@ -115,6 +130,15 @@ export function appReducer(state: AppState, action: AppAction): AppState {
             };
             delete newStatate.symbols[action.symbol];
             return newStatate;
+        }
+        case 'UPDATE_QUOTE': {
+            return {
+                ...state,
+                quotes: {
+                    ...state.quotes,
+                    [action.quote.symbol]: action.quote,
+                }
+            }
         }
         default: {
             console.warn('Unexpected action', action);

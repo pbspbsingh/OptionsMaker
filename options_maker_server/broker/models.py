@@ -1,7 +1,9 @@
 import logging
 from dataclasses import dataclass
 from datetime import datetime
-from typing import Dict, Any
+from typing import Dict, Any, Literal, Optional
+
+from pydantic import BaseModel, ConfigDict, Field, RootModel
 
 from db.instruments import Price
 from utils.times import MY_TIME_ZONE
@@ -73,3 +75,62 @@ def price_from_json(symbol: str, data: Dict[str, Any]) -> Price:
     except Exception as e:
         _LOGGER.error(f"Could not parse Price from {data}", e)
         raise e
+
+
+class OptionResponse(BaseModel):
+    model_config = ConfigDict(strict=True)
+
+    symbol: str
+    status: str
+    underlying_price: float = Field(alias="underlyingPrice")
+    call_exp_date_map: dict[str, "Options"] = Field(alias="callExpDateMap")
+    put_exp_date_map: dict[str, "Options"] = Field(alias="putExpDateMap")
+
+
+class Options(RootModel):
+    model_config = ConfigDict(strict=True)
+    root: dict[str, list["Option"]]
+
+    @property
+    def options(self) -> list["Option"]:
+        return [options[0] for options in self.root.values() if len(options) > 0]
+
+    def model_dump(self, **kwargs) -> list[dict[str, Any]]:
+        return [opt.model_dump(**kwargs) for opt in self.options]
+
+    def model_dump_json(self, **kwargs) -> str:
+        import json
+
+        return json.dumps(self.model_dump(**kwargs))
+
+    def __str__(self):
+        opts = self.options
+        return f"Options({len(opts)}, {str(opts)})"
+
+
+class Option(BaseModel):
+    model_config = ConfigDict(strict=False)
+    option_type: Literal["CALL", "PUT"] = Field(alias="putCall")
+    symbol: str
+    description: str
+    strike_price: float = Field(alias="strikePrice")
+    expiration_date: str = Field(alias="expirationDate")
+    volatility: float
+    delta: float
+    bid: float
+    bid_size: int = Field(alias="bidSize")
+    ask: float
+    ask_size: int = Field(alias="askSize")
+    last: float
+    last_size: int = Field(alias="lastSize")
+    open_interest: int = Field(alias="openInterest")
+    total_volume: int = Field(alias="totalVolume")
+
+
+class Quote(BaseModel):
+    model_config = ConfigDict(strict=False)
+    symbol: str = Field(alias="key")
+
+    bid_price: Optional[float] = Field(alias="BID_PRICE", default=None)
+    ask_price: Optional[float] = Field(alias="ASK_PRICE", default=None)
+    last_price: Optional[float] = Field(alias="LAST_PRICE", default=None)

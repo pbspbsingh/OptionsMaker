@@ -4,6 +4,7 @@ from datetime import datetime
 import config
 import db
 from broker import Client, Account
+from broker.models import OptionResponse
 from db import FakeDBHelper
 from db.instruments import Price, Instrument
 
@@ -61,3 +62,13 @@ class FakeSchwabClient(Client):
 
     async def find_ticker(self, symbol: str) -> str:
         return ""
+
+    async def get_options(
+            self,
+            *,
+            symbol: str,
+            count: int,
+            from_date: datetime.date,
+            to_date: datetime.date,
+    ) -> OptionResponse:
+        raise NotImplementedError("F**K off")
