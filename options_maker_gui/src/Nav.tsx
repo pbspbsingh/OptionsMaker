@@ -8,7 +8,6 @@ import {
     type MouseEvent
 } from "react";
 import { AppStateContext } from "./State";
-import { fmt } from "./utils";
 
 import "./Nav.scss";
 import { NavLink } from "react-router";
@@ -113,7 +112,7 @@ export default function Nav(): JSX.Element {
                     {connected ? <Connected height="25px" /> : <NotConnected height="25px" />}
                 </p>
                 <p><b>Account:</b> {account.number}</p>
-                <p><b>Balance:</b> ${fmt(account.balance)}</p>
+                <p><b>Balance:</b> ${account.balance.toFixed(2)}</p>
             </div>
             <hr />
             <ul className="main-nav">

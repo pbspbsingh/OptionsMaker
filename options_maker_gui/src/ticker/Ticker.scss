@@ -60,14 +60,24 @@
                 cursor: pointer;
             }
 
+            td {
+                padding: .25rem;
+            }
+
+            tr.selected td {
+                color: var(--pico-primary-inverse);
+                background-color: var(--pico-primary-hover-border);
+            }
+
             tr.current-price {
                 td {
                     font-size: .6rem;
+                    font-weight: bold;
                     letter-spacing: 2px;
                     color: var(--pico-secondary);
                     text-align: center;
                     padding: 5px;
-                    background-color: #0b08089e;
+                    background-color: var(--pico-muted-border-color);
                 }
             }
         }

@@ -11,7 +11,7 @@ import type { Divergence, Price, PriceLevel } from "../State";
 import { useEffect, useRef } from "react";
 import { priceToVol } from "../utils";
 
-import { useDivergences, usePriceLevels, useRsiLine } from "./chartComponents";
+import { useDivergences, useMA, usePriceLevels, useRsiLine } from "./chartComponents";
 
 export interface ChartProps {
     prices: Price[],
@@ -72,6 +72,7 @@ export default function Chart({ prices, priceLevels, divergences }: ChartProps) 
         }
     }, [chartRef, prices]);
 
+    useMA(chartRef, prices);
     useRsiLine(chartRef, prices);
     useDivergences(chartRef, divergences ?? []);
     usePriceLevels(candlesRef, priceLevels ?? []);

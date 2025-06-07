@@ -1,3 +1,5 @@
+import { useState } from "react"
+
 export interface Options {
   calls: Option[]
   puts: Option[]
@@ -24,19 +26,32 @@ export interface Option {
 export interface OptionsViewProps {
   options: Options,
   currentPrice: number,
+  onSelect?: (option: Option) => void;
 }
 
-export default function OptionsView({ options, currentPrice }: OptionsViewProps) {
+export default function OptionsView({ options, currentPrice, onSelect }: OptionsViewProps) {
+  const [selectedId, setSelectedId] = useState<string | undefined>();
+  const select = (option: Option) => {
+    setSelectedId(option.symbol);
+    if (onSelect != null) {
+      onSelect(option);
+    }
+  };
+
   return (
     <section className="options-view grid">
       <OptionView
         isCalls={true}
         options={options.calls}
-        currentPrice={currentPrice} />
+        currentPrice={currentPrice}
+        onSelect={select}
+        selectedId={selectedId} />
       <OptionView
         isCalls={false}
         options={options.puts}
-        currentPrice={currentPrice} />
+        currentPrice={currentPrice}
+        onSelect={select}
+        selectedId={selectedId} />
     </section>
   );
 }
@@ -45,21 +60,27 @@ interface OptionViewProps {
   isCalls: boolean,
   options: Option[],
   currentPrice: number,
+  selectedId?: string,
+  onSelect: (option: Option) => void;
 }
 
-const OptionView = ({ isCalls, options, currentPrice }: OptionViewProps) => {
+const OptionView = ({ isCalls, options, currentPrice, selectedId, onSelect }: OptionViewProps) => {
   const expiry = new Date(options[0].expiration_date);
   const optionChains = options.map(option => (
-    <tr key={option.symbol} title={option.symbol}>
+    <tr key={option.symbol}
+      title={option.symbol}
+      className={selectedId == option.symbol ? "selected" : ""}
+      onClick={() => onSelect(option)}>
       <td>${option.strike_price}</td>
-      <td>{option.bid.toFixed(2)} x {option.bid_size}</td>
-      <td>{option.ask.toFixed(2)} x {option.ask_size}</td>
-      <td>{option.last.toFixed(2)} x {option.last_size}</td>
+      <td>{option.bid.toFixed(2)} x{option.bid_size}</td>
+      <td>{option.ask.toFixed(2)} x{option.ask_size}</td>
+      <td>{option.last.toFixed(2)} x{option.last_size}</td>
       <td>{option.delta.toFixed(2)}</td>
       <td>{option.volatility.toFixed(2)}</td>
       <td>{option.open_interest}</td>
     </tr>
   ));
+
   const priceLine = (<tr className="current-price" key="currentPrice">
     <td colSpan={7}>${currentPrice.toFixed(2)}</td>
   </tr>);
@@ -81,7 +102,7 @@ const OptionView = ({ isCalls, options, currentPrice }: OptionViewProps) => {
       <table>
         <thead>
           <tr>
-            <td>Strike Price</td>
+            <td>Strike</td>
             <td>Bid</td>
             <td>Ask</td>
             <td>Last</td>

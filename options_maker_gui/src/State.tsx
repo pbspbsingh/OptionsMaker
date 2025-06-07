@@ -36,7 +36,7 @@ export type Price = {
     close: number,
     volume: number,
     rsi?: number,
-    mi?: number,
+    ma?: number,
 };
 
 export type PriceLevel = {

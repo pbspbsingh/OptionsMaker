@@ -26,7 +26,7 @@ class Chart:
 
         self.prices = agg_prices(new_prices, self.agg_time)
         self.prices["rsi"] = talib.RSI(self.prices.close)
-        self.prices["ma"] = talib.EMA(self.prices.close, timeperiod=20)
+        self.prices["ma"] = talib.EMA(self.prices.close, timeperiod=20 if self.agg_time == "5Min" else 100)
         self.prices = trim_prices(self.prices, 2 if self.agg_time == "5Min" else 5)
 
         divergence = compute_divergence(self.prices)

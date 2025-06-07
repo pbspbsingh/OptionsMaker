@@ -1,10 +1,6 @@
 import type { UTCTimestamp } from "lightweight-charts";
 import type { Price } from "./State";
 
-export function fmt(num: number): string {
-    return num.toFixed(2)
-}
-
 export const priceToVol = (price: Price): { time: UTCTimestamp, value: number, color: string } => ({
     time: price.time,
     value: price.volume,
@@ -14,4 +10,9 @@ export const priceToVol = (price: Price): { time: UTCTimestamp, value: number, c
 export const priceToRsi = (price: Price): { time: UTCTimestamp, value?: number } => ({
     time: price.time,
     value: price.rsi != null ? price.rsi : undefined,
+});
+
+export const priceToMa = (price: Price): { time: UTCTimestamp, value?: number } => ({
+    time: price.time,
+    value: price.ma != null ? price.ma : undefined,
 });

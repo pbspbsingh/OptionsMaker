@@ -10,7 +10,7 @@ import type {
     Price,
     PriceLevel
 } from "../State";
-import { priceToRsi } from "../utils";
+import { priceToMa, priceToRsi } from "../utils";
 import { deepEqual } from "../compare";
 
 export function useRsiLine(chartRef: React.RefObject<IChartApi | null>, prices: Price[]) {
@@ -65,6 +65,45 @@ export function useRsiLine(chartRef: React.RefObject<IChartApi | null>, prices: 
     }, [rsiLineRef, prices]);
 }
 
+export function useMA(chartRef: React.RefObject<IChartApi | null>, prices: Price[]) {
+    const maLineRef = useRef<ISeriesApi<"Line">>(null);
+
+    useEffect(() => {
+        const chart = chartRef.current;
+        if (chart == null) return;
+
+        if (prices.length > 0 && prices[prices.length - 1].ma != null) {
+            maLineRef.current = chart.addSeries(
+                LineSeries,
+                {
+                    color: 'rgb(144, 86, 222)',
+                    lastValueVisible: false,
+                    priceLineVisible: false,
+                    lineWidth: 1,
+                },
+                0,
+            );
+            maLineRef.current.setData(prices.map(priceToMa))
+        }
+        return () => { maLineRef.current = null; };
+    }, [chartRef]);
+
+    useEffect(() => {
+        const maLine = maLineRef.current;
+        if (maLine == null) return;
+
+        if (prices.length > 0) {
+            const maData = maLine.data();
+            const last = prices[prices.length - 1];
+            if (maData.length === 0 || last.time as number < (maData[maData.length - 1].time as number)) {
+                maLine.setData(prices.map(priceToMa))
+            } else {
+                maLine.update(priceToMa(last));
+            }
+        }
+    }, [maLineRef, prices]);
+}
+
 export function useDivergences(chartRef: React.RefObject<IChartApi | null>, divergences: Divergence[]) {
     const divergencesRef = useRef<{ lines: Array<ISeriesApi<"Line">>, data: Divergence[] }>({ lines: [], data: [] });
 
@@ -86,7 +125,7 @@ export function useDivergences(chartRef: React.RefObject<IChartApi | null>, dive
 
             const newLines = [];
             for (const divergence of divergences) {
-                const color = divergence.div_type === "Bullish" ? "#19cc14d4" : "purple";
+                const color = divergence.div_type === "Bullish" ? "#19cc14d4" : "#f5000099";
                 const priceLine = chart.addSeries(LineSeries, {
                     priceLineVisible: false,
                     lastValueVisible: false,
