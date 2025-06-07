@@ -83,13 +83,41 @@
         }
     }
 
+    .order-form {
+        font-size: .8rem;
+        display: flex;
+        align-items: end;
+        gap: 1.25rem;
+        --pico-spacing: .25rem;
+        --pico-form-element-spacing-vertical: .5rem;
+        --pico-form-element-spacing-horizontal: .5rem;
+
+        &>:last-child {
+            margin-inline-start: auto;
+        }
+
+        label {
+            font-size: .6rem;
+            color: var(--pico-secondary);
+        }
+
+        input {
+            width: auto;
+            font-size: .8rem;
+        }
+    }
+
+    .all-charts {
+        margin-bottom: 0;
+    }
+
     .metainfo {
-        margin-bottom: .2rem;
+        margin-block: .2rem;
         display: flex;
         justify-content: end;
 
         p {
-            margin-bottom: 0;
+            margin-block: 0;
             font-size: .8rem;
             color: var(--pico-secondary);
         }

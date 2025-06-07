@@ -1,5 +1,3 @@
-import { useState } from "react"
-
 export interface Options {
   calls: Option[]
   puts: Option[]
@@ -26,31 +24,24 @@ export interface Option {
 export interface OptionsViewProps {
   options: Options,
   currentPrice: number,
-  onSelect?: (option: Option) => void;
+  selectedId?: string,
+  onSelect: (option: Option) => void;
 }
 
-export default function OptionsView({ options, currentPrice, onSelect }: OptionsViewProps) {
-  const [selectedId, setSelectedId] = useState<string | undefined>();
-  const select = (option: Option) => {
-    setSelectedId(option.symbol);
-    if (onSelect != null) {
-      onSelect(option);
-    }
-  };
-
+export default function OptionsView({ options, currentPrice, selectedId, onSelect }: OptionsViewProps) {
   return (
     <section className="options-view grid">
       <OptionView
         isCalls={true}
         options={options.calls}
         currentPrice={currentPrice}
-        onSelect={select}
+        onSelect={onSelect}
         selectedId={selectedId} />
       <OptionView
         isCalls={false}
         options={options.puts}
         currentPrice={currentPrice}
-        onSelect={select}
+        onSelect={onSelect}
         selectedId={selectedId} />
     </section>
   );
@@ -69,7 +60,7 @@ const OptionView = ({ isCalls, options, currentPrice, selectedId, onSelect }: Op
   const optionChains = options.map(option => (
     <tr key={option.symbol}
       title={option.symbol}
-      className={selectedId == option.symbol ? "selected" : ""}
+      className={selectedId === option.symbol ? "selected" : ""}
       onClick={() => onSelect(option)}>
       <td>${option.strike_price}</td>
       <td>{option.bid.toFixed(2)} x{option.bid_size}</td>

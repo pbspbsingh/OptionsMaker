@@ -1,11 +1,18 @@
 import { useContext, useEffect, useState } from "react";
 import { useParams } from "react-router";
 
-import './Ticker.scss';
-import { AppStateContext, type Price, type Quote } from "../State";
-import Chart from "./Chart";
+import {
+    AppStateContext,
+    type Price,
+    type Quote,
+    type Symbol,
+} from "../State";
 import { useSnackbar, type SnackbarKey } from "notistack";
-import OptionsView, { type Options } from "./OptionsView";
+import OptionsView, { type Option, type Options } from "./OptionsView";
+import Chart from "./Chart";
+import OrderForm, { type Order } from "./OrderForm";
+
+import './Ticker.scss';
 
 export default function Ticker() {
     const { ticker = "JUNK" } = useParams();
@@ -14,12 +21,14 @@ export default function Ticker() {
     const [optionsLoading, setOptionsLoading] = useState(false);
     const { enqueueSnackbar: showSnackbar, closeSnackbar } = useSnackbar();
     const [options, setOptions] = useState<Options | null>(null);
+    const [wipOrder, setWipOrder] = useState<Order | undefined>();
 
     const symbol = symbols[ticker];
 
     useEffect(() => {
         document.title = ticker;
         setOptions(null);
+        setWipOrder(undefined);
     }, [ticker]);
 
     if (symbol == null) {
@@ -65,11 +74,20 @@ export default function Ticker() {
                     <button disabled={optionsLoading} onClick={onLoadOptions}>Load options</button>
                 </section>
             </header>
-            {options != null && <OptionsView options={options} currentPrice={curPrice} />}
-            <section className="metainfo">
-                <p>Last Updated: {new Date(symbol.last_updated * 1000).toLocaleString()}</p>
-            </section>
-            <section className="grid">
+            {options != null &&
+                <OptionsView
+                    options={options}
+                    currentPrice={curPrice}
+                    selectedId={wipOrder?.optionId}
+                    onSelect={opt => setWipOrder(createOrder(symbol, opt, curPrice))}
+                />}
+            {wipOrder != null &&
+                <OrderForm
+                    currentPrice={curPrice}
+                    order={wipOrder}
+                    onUpdate={setWipOrder}
+                />}
+            <section className="grid all-charts">
                 {Object.entries(symbol.charts).map(([frame, data]) => (
                     <Chart key={`${symbol.symbol}_${frame}`}
                         prices={data.prices}
@@ -77,6 +95,9 @@ export default function Ticker() {
                         priceLevels={symbol.price_levels}
                     />
                 ))}
+            </section>
+            <section className="metainfo">
+                <p>Last Updated: {new Date(symbol.last_updated * 1000).toLocaleString()}</p>
             </section>
         </div>
     );
@@ -87,4 +108,22 @@ const getLastPrice = (prices: Price[], quote?: Quote): number => {
         return prices[prices.length - 1].close;
     }
     return quote.last_price;
+}
+
+const createOrder = (symbol: Symbol, option: Option, lastPrice: number): Order => {
+    let stopLoss = lastPrice;
+    let targetProfit = lastPrice;
+    if (option.option_type === "CALL") {
+        stopLoss -= symbol.atr ?? 1;
+        targetProfit += 2 * (symbol.atr ?? 1);
+    } else {
+        stopLoss += symbol.atr ?? 1;
+        targetProfit -= 2 * (symbol.atr ?? 1);
+    }
+    return {
+        quantity: 1,
+        optionId: option.symbol,
+        stopLoss,
+        targetProfit,
+    };
 }
