@@ -1,16 +1,15 @@
-import { useContext, useEffect, useState } from "react";
+import { useCallback, useContext, useEffect, useState } from "react";
 import { useParams } from "react-router";
 
 import {
     AppStateContext,
-    type Price,
-    type Quote,
     type Symbol,
 } from "../State";
 import { useSnackbar, type SnackbarKey } from "notistack";
 import OptionsView, { type Option, type Options } from "./OptionsView";
 import Chart from "./Chart";
 import OrderForm, { type Order } from "./OrderForm";
+import { useLastPrice } from "../utils";
 
 import './Ticker.scss';
 
@@ -21,19 +20,16 @@ export default function Ticker() {
     const [optionsLoading, setOptionsLoading] = useState(false);
     const { enqueueSnackbar: showSnackbar, closeSnackbar } = useSnackbar();
     const [options, setOptions] = useState<Options | null>(null);
-    const [wipOrder, setWipOrder] = useState<Order | undefined>();
+    const [wipOrder, setWipOrder] = useState<Order | null>(null);
+    const lastPrice = useLastPrice(ticker);
 
     const symbol = symbols[ticker];
 
     useEffect(() => {
         document.title = ticker;
         setOptions(null);
-        setWipOrder(undefined);
+        setWipOrder(null);
     }, [ticker]);
-
-    if (symbol == null) {
-        return null;
-    }
 
     const snackbarAction = (id: SnackbarKey) => (
         <button onClick={() => closeSnackbar(id)}>
@@ -58,8 +54,22 @@ export default function Ticker() {
             setOptionsLoading(false);
         }
     };
+    const onStopLimitUpdate = useCallback((name: string, price: number): boolean => {
+        if (wipOrder == null) return false;
+
+        const field = name === "SL" ? "stopLoss" : name === "TP" ? "targetProfit" : "";
+        const newOrder = { ...wipOrder, [field]: price };
+        if (validOrder(newOrder, lastPrice)) {
+            setWipOrder(newOrder);
+            return true;
+        }
+        return false;
+    }, [wipOrder, lastPrice]);
+
+    if (symbol == null) {
+        return null;
+    }
     const quote = quotes[symbol.symbol];
-    const curPrice = getLastPrice(symbol.charts["5Min"]?.prices ?? [], quote);
     return (
         <div className="ticker">
             <header className="top-bar">
@@ -68,7 +78,7 @@ export default function Ticker() {
                     B: ${quote.bid_price?.toFixed(2)}&nbsp;
                     A: ${quote.ask_price?.toFixed(2)}&nbsp;
                     L: ${quote.last_price?.toFixed(2)}
-                </span> : <span className="quote">Last: ${curPrice.toFixed(2)}</span>}
+                </span> : <span className="quote">Last: ${lastPrice.toFixed(2)}</span>}
                 <section className="quick-actions">
                     <button className="outline" disabled>Flatten</button>
                     <button disabled={optionsLoading} onClick={onLoadOptions}>Load options</button>
@@ -77,15 +87,15 @@ export default function Ticker() {
             {options != null &&
                 <OptionsView
                     options={options}
-                    currentPrice={curPrice}
+                    currentPrice={lastPrice}
                     selectedId={wipOrder?.optionId}
-                    onSelect={opt => setWipOrder(createOrder(symbol, opt, curPrice))}
+                    onSelect={opt => setWipOrder(createOrder(symbol, opt, lastPrice, wipOrder))}
                 />}
             {wipOrder != null &&
                 <OrderForm
-                    currentPrice={curPrice}
+                    currentPrice={lastPrice}
                     order={wipOrder}
-                    onUpdate={setWipOrder}
+                    onUpdate={newOrder => { if (validOrder(newOrder, lastPrice)) setWipOrder(newOrder) }}
                 />}
             <section className="grid all-charts">
                 {Object.entries(symbol.charts).map(([frame, data]) => (
@@ -93,6 +103,12 @@ export default function Ticker() {
                         prices={data.prices}
                         divergences={data.divergences}
                         priceLevels={symbol.price_levels}
+                        isOrderSubmitted={false}
+                        limits={wipOrder != null ? {
+                            "TP": wipOrder.targetProfit,
+                            "SL": wipOrder.stopLoss
+                        } : {}}
+                        onLimitUpdate={onStopLimitUpdate}
                     />
                 ))}
             </section>
@@ -103,27 +119,33 @@ export default function Ticker() {
     );
 }
 
-const getLastPrice = (prices: Price[], quote?: Quote): number => {
-    if (quote == null || quote.last_price == null) {
-        return prices[prices.length - 1].close;
-    }
-    return quote.last_price;
-}
-
-const createOrder = (symbol: Symbol, option: Option, lastPrice: number): Order => {
+function createOrder(symbol: Symbol, option: Option, lastPrice: number, prevOrder: Order | null): Order {
     let stopLoss = lastPrice;
     let targetProfit = lastPrice;
-    if (option.option_type === "CALL") {
-        stopLoss -= symbol.atr ?? 1;
-        targetProfit += 2 * (symbol.atr ?? 1);
+    if (prevOrder == null || prevOrder.orderType !== option.option_type) {
+        if (option.option_type === "CALL") {
+            stopLoss -= symbol.atr ?? 1;
+            targetProfit += 2 * (symbol.atr ?? 1);
+        } else {
+            stopLoss += symbol.atr ?? 1;
+            targetProfit -= 2 * (symbol.atr ?? 1);
+        }
     } else {
-        stopLoss += symbol.atr ?? 1;
-        targetProfit -= 2 * (symbol.atr ?? 1);
+        stopLoss = prevOrder.stopLoss;
+        targetProfit = prevOrder.targetProfit;
     }
+
     return {
+        orderType: option.option_type,
         quantity: 1,
         optionId: option.symbol,
         stopLoss,
         targetProfit,
     };
 }
+
+function validOrder(newOrder: Order, curPrice: number): boolean {
+    return (newOrder.orderType === "CALL" && newOrder.stopLoss < curPrice && curPrice < newOrder.targetProfit)
+        || (newOrder.orderType === "PUT" && newOrder.stopLoss > curPrice && curPrice > newOrder.targetProfit);
+}
+

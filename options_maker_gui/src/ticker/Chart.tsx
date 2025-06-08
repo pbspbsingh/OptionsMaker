@@ -6,20 +6,25 @@ import {
     type ChartOptions,
     type DeepPartial,
     HistogramSeries,
+    CrosshairMode,
 } from "lightweight-charts";
 import type { Divergence, Price, PriceLevel } from "../State";
 import { useEffect, useRef } from "react";
 import { priceToVol } from "../utils";
 
-import { useDivergences, useMA, usePriceLevels, useRsiLine } from "./chartComponents";
+import { useDivergences, useMA, useRsiLine } from "./chartComponents";
+import { useStopLimits, type StopLimits } from "./stopLimits";
 
 export interface ChartProps {
     prices: Price[],
     divergences?: Divergence[],
     priceLevels?: PriceLevel[],
+    limits: StopLimits,
+    onLimitUpdate: (name: string, price: number) => boolean,
+    isOrderSubmitted: boolean,
 }
 
-export default function Chart({ prices, priceLevels, divergences }: ChartProps) {
+export default function Chart({ prices, divergences, limits, isOrderSubmitted, onLimitUpdate }: ChartProps) {
     const divRef = useRef<HTMLDivElement>(null);
     const chartRef = useRef<IChartApi>(null);
     const candlesRef = useRef<ISeriesApi<"Candlestick">>(null);
@@ -28,7 +33,7 @@ export default function Chart({ prices, priceLevels, divergences }: ChartProps) 
     useEffect(() => {
         if (divRef.current == null) return;
 
-        console.debug('Initializing chart with', prices.length, priceLevels?.length, divergences?.length);
+        console.debug('Initializing chart with', prices.length, divergences?.length);
         chartRef.current = createChart(divRef.current, CHART_OPTIONS);;
         candlesRef.current = chartRef.current.addSeries(CandlestickSeries);
         candlesRef.current.applyOptions({
@@ -75,7 +80,7 @@ export default function Chart({ prices, priceLevels, divergences }: ChartProps) 
     useMA(chartRef, prices);
     useRsiLine(chartRef, prices);
     useDivergences(chartRef, divergences ?? []);
-    usePriceLevels(candlesRef, priceLevels ?? []);
+    useStopLimits(chartRef, candlesRef, limits, isOrderSubmitted, onLimitUpdate);
 
     return <div ref={divRef} />;
 }
@@ -83,6 +88,9 @@ export default function Chart({ prices, priceLevels, divergences }: ChartProps) 
 const CHART_OPTIONS: DeepPartial<ChartOptions> = {
     height: 600,
     autoSize: true,
+    crosshair: {
+        mode: CrosshairMode.Normal,
+    },
     layout: {
         background: { color: '#253238' }, // Dark background color
         textColor: '#F0F0F3',             // Light text color

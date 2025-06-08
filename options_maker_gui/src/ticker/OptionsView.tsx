@@ -4,7 +4,7 @@ export interface Options {
 }
 
 export interface Option {
-  option_type: string
+  option_type: "CALL" | "PUT",
   symbol: string
   description: string
   strike_price: number

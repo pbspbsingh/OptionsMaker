@@ -5,6 +5,7 @@ export interface OrderProps {
 }
 
 export interface Order {
+    orderType: "CALL" | "PUT",
     quantity: number,
     optionId: string,
     stopLoss: number,

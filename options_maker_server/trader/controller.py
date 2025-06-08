@@ -6,7 +6,7 @@ import pandas as pd
 import websocket as ws
 from db.instruments import Price
 from trader.chart import Chart
-from utils.prices import prices_to_df, agg_prices, compute_price_levels, PriceLevel, Divergence
+from utils.prices import prices_to_df, PriceLevel, Divergence
 
 SUPPORT_RESISTANCE_DAYS = 7
 PRICE_LEVEL_TIME_FRAME = "60min"
