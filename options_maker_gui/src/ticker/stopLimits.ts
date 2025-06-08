@@ -27,6 +27,7 @@ export function useStopLimits(
 ) {
     const dragPlugingRef = useRef<PriceLineDragPlugin | null>(null);
     const limitLinesRef = useRef<StopLines>({});
+
     useEffect(() => {
         const chart = chartRef.current;
         const candles = candlesRef.current;
@@ -47,7 +48,6 @@ export function useStopLimits(
     }, [onLimitUpdate]);
 
     useEffect(() => {
-        // Cleanup stop limit lines
         return () => {
             for (const priceLine of Object.values(limitLinesRef.current)) {
                 candlesRef.current?.removePriceLine(priceLine);
@@ -64,7 +64,7 @@ export function useStopLimits(
         const limitLineEntries = Object.entries(limitLinesRef.current);
         const prevLines = limitLineEntries.reduce((prev, [name, priceLine]) => ({ ...prev, [name]: priceLine.options().price }), {});
         const prevLineStyle = limitLineEntries.length > 0 ? limitLineEntries[0][1].options().lineStyle : null;
-        if (!deepEqual(limits, prevLines, 0.01) || lineStyle != prevLineStyle) {
+        if (!deepEqual(limits, prevLines, 0.01) || lineStyle !== prevLineStyle) {
             for (const priceLine of Object.values(limitLinesRef.current)) {
                 candles.removePriceLine(priceLine);
             }

@@ -7,12 +7,17 @@ import {
     type JSX,
     type MouseEvent
 } from "react";
-import { AppStateContext } from "./State";
+import {
+    AppStateContext,
+    type Symbol
+} from "./State";
 
-import "./Nav.scss";
 import { NavLink } from "react-router";
 import { Connected, NotConnected } from "./icons";
 import { useSnackbar, type SnackbarKey } from "notistack";
+
+import "./Nav.scss";
+import { toChartDate } from "./utils";
 
 export default function Nav(): JSX.Element {
     const { connected, account, symbols } = useContext(AppStateContext);
@@ -126,6 +131,7 @@ export default function Nav(): JSX.Element {
                         <li key={symbol}>
                             <NavLink to={`/ticker/${symbol}`}>
                                 <span className="symbol">{symbol}</span> | ${symbols[symbol].atr?.toFixed(2)}
+                                <Divergence symbol={symbols[symbol]} />
                             </NavLink>
                         </li>
                     ))}
@@ -163,3 +169,17 @@ export default function Nav(): JSX.Element {
         </nav>
     );
 }
+
+const Divergence = ({ symbol }: { symbol: Symbol }) => {
+    const divs = Object.values(symbol.charts).flatMap(chart => chart.divergences)
+    if (divs.length === 0) {
+        return null;
+    }
+    divs.sort((a, b) => b.end - a.end);
+    const div = divs[0];
+    return (<> |&nbsp;
+        <span className={div.div_type.toLowerCase()}>
+            {toChartDate(div.end).toLocaleTimeString()}
+        </span>
+    </>);
+};

@@ -33,3 +33,6 @@ export function useLastPrice(ticker: string): number {
     if (charts.prices.length === 0) return -1;
     return charts.prices[charts.prices.length - 1].close;
 }
+
+// Convert PST timestap to UTC timestap, +7 hours
+export const toChartDate = (date: number) => new Date((date + 7 * 3600) * 1000)

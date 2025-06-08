@@ -58,7 +58,7 @@ export default function Order({ currentPrice, order, onUpdate }: OrderProps) {
                             onChange={e => onUpdate({ ...order, targetProfit: parseFloat(e.target.value) })}
                         />
                     </div>
-                    <input type="submit" value="Place Order" />
+                    <input type="submit" value="Place Order" disabled />
                 </fieldset>
             </form>
         </article>
