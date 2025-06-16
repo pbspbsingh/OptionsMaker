@@ -68,12 +68,13 @@ def seconds_to_human(seconds: int) -> str:
 
 def options_expiry_range(td: datetime.date = now().date()):
     s = td + timedelta(days=2)
-    e = s.replace(day=6) + timedelta(days=7)
+    weekday = s.weekday()
+    days_until_friday = (4 - weekday + 7) % 7
+    e = s + timedelta(days=days_until_friday)
     return s, e
 
-
 if __name__ == "__main__":
-    for x in range(2, 7, 1):
+    for x in range(1, 30, 1):
         today = datetime.date(2025, 6, x)
         start, end = options_expiry_range(today)
         print(today, start, end)

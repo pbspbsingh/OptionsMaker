@@ -7,26 +7,19 @@ import sys
 import broker
 from broker.models import OptionResponse
 
+OPTION_SYMBOL = "AAPL 250613P00210000"
 
 async def main():
     print(os.getcwd())
 
     client = await broker._init()
     schwab_client = client._client
-    print("Quering options chain")
-    response = await schwab_client.get_option_chain(
-        symbol="AAPL",
-        contract_type=schwab_client.Options.ContractType.ALL,
-        strike_count=5,
-        to_date=datetime.date.fromisoformat("2025-06-06"),
-    )
-    response.raise_for_status()
-    options_res = OptionResponse.model_validate(response.json())
-    print(options_res)
-    for options in options_res.call_exp_date_map.values():
-        print(options)
 
+    res = await schwab_client.get_quotes(symbols=[OPTION_SYMBOL])
+    res.raise_for_status()
+    print(res.json())
 
+    await asyncio.sleep(30)
     print("Done")
 
 

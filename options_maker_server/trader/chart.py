@@ -29,7 +29,7 @@ class Chart:
         self.prices["ma"] = talib.EMA(self.prices.close, timeperiod=20 if self.agg_time == "5Min" else 100)
         self.prices = trim_prices(self.prices, 2 if self.agg_time == "5Min" else 5)
 
-        divergence = compute_divergence(self.prices)
+        divergence = compute_divergence(self.prices, cutoff=(25, 75))
         if divergence is not None:
             self._clear_overlapping(divergence)
             self._divergences.append(divergence)

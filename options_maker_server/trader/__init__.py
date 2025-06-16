@@ -31,11 +31,11 @@ async def load_subscribed_instruments():
 
     handlers = {sym: ctr.on_new_price for sym, ctr in SUBSCRIBED_INSTRUMENTS.items()}
     await broker.CLIENT.subscribe_chart(handlers)
-    _LOGGER.info(f"Subscribing to {len(handlers)} instruments to equity charts")
+    _LOGGER.info(f"Subscribing {len(handlers)} instruments to equity charts")
 
     handlers = {sym: tm.on_quote for sym, tm in TRADES_MANAGERS.items()}
     await broker.CLIENT.subscribe_quotes(handlers)
-    _LOGGER.info(f"Subscribing to {len(handlers)} instruments to level one quotes")
+    _LOGGER.info(f"Subscribing {len(handlers)} instruments to level one quotes")
 
 
 async def _create_controller(symbol: str) -> Controller:

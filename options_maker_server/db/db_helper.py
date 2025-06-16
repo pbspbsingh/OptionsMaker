@@ -110,6 +110,9 @@ class FakeDBHelper(TortoiseDBHelper):
     async def fetch_divergences(self, symbol: str) -> dict[str, list[Divergence]]:
         return {}
 
+    def save_divergences(self, symbol: str, agg: str, divergences: list[Divergence]):
+        pass
+
     async def _save_divergences(self):
         while True:
             await self._div_queue.get()
