@@ -47,7 +47,7 @@ async def _create_controller(symbol: str) -> Controller:
         start_time = price.time + timedelta(seconds=60)
 
     new_prices = await broker.CLIENT.fetch_prices(symbol, start_time)
-    _LOGGER.info(f"Fetched {len(new_prices)} new prices")
+    _LOGGER.info(f"Fetched {len(new_prices)} new prices for {symbol}")
 
     await db.DB_HELPER.save_prices(new_prices)
 

@@ -195,7 +195,7 @@ def compute_divergence(
         df: pd.DataFrame,
         *,
         div_order: int = 3,
-        cutoff: tuple[float, float] | None = None,
+        cutoff: tuple[float, float, bool] | None = None,
 ) -> Optional[Divergence]:
     df = df.iloc[:-1]  # Ignore the latest price point, since this one is still updating
     length = df.shape[0]
@@ -228,7 +228,7 @@ def _find_divergence(
         df: pd.DataFrame,
         div_type: DivergenceType,
         extrema: np.array,
-        cutoff: tuple[float, float] | None = None,
+        cutoff: tuple[float, float, bool] | None = None,
 ) -> Optional[Divergence]:
     series = df.high if div_type == DivergenceType.Bearish else df.low
     result: Divergence | None = None
@@ -263,14 +263,20 @@ def _find_divergence(
     return result
 
 
-def _check_cutoff(div_type: DivergenceType, cutoff: tuple[float, float], rsi1: float, rsi2: float) -> bool:
+def _check_cutoff(div_type: DivergenceType, cutoff: tuple[float, float, bool], rsi1: float, rsi2: float) -> bool:
+    [low, high, exclusive] = cutoff
+
+    if not exclusive:
+        return ((div_type == DivergenceType.Bullish and (rsi1 <= low or rsi2 <= low)) or
+                (div_type == DivergenceType.Bearish and (rsi1 >= high or rsi2 >= high)))
+
     if abs(rsi1 - rsi2) <= EPSILON:
         return False
 
-    if div_type == DivergenceType.Bullish and ((rsi1 <= cutoff[0] <= rsi2) or (rsi1 >= cutoff[0] >= rsi2)):
+    if div_type == DivergenceType.Bullish and ((rsi1 <= low <= rsi2) or (rsi1 >= low >= rsi2)):
         return True
 
-    return div_type == DivergenceType.Bearish and ((rsi1 >= cutoff[1] >= rsi2) or (rsi1 <= cutoff[1] <= rsi2))
+    return div_type == DivergenceType.Bearish and ((rsi1 >= high >= rsi2) or (rsi1 <= high <= rsi2))
 
 
 def _angle_diff(a1: float, a2: float) -> float:
