@@ -2,15 +2,17 @@ import asyncio
 import logging
 import os
 from abc import abstractmethod, ABC
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import Callable, Any
 
 from pydantic import ValidationError
 from schwab.client import AsyncClient
 from schwab.streaming import StreamClient
 
+import config
 from broker.models import Account, price_from_json, OptionResponse, Quote
 from db.instruments import Price
+from utils.times import parse_duration_string
 
 
 class Client(ABC):
@@ -132,6 +134,7 @@ class SchwabClient(Client):
     _stream_client: StreamClient
     _equity_subscribed: bool
     _quotes_subscribed: bool
+    _fetch_1min_equity: bool
 
     def __init__(self, account: Account, client: AsyncClient, stream_client: StreamClient):
         super().__init__()
@@ -141,6 +144,9 @@ class SchwabClient(Client):
         self._stream_client = stream_client
         self._equity_subscribed = False
         self._quotes_subscribed = False
+
+        min_tf = parse_duration_string(config.TF_LOWER_TIME_FRAME)
+        self._fetch_1min_equity = min_tf < timedelta(minutes=30)
 
     async def init_client(self):
         account_info = await self._client.get_account(self.account.hash)
@@ -224,11 +230,19 @@ class SchwabClient(Client):
             raise e
 
     async def fetch_prices(self, symbol: str, start: datetime) -> list[Price]:
-        resp = await self._client.get_price_history_every_minute(
-            symbol,
-            start_datetime=start,
-            need_extended_hours_data=True,
-        )
+        if self._fetch_1min_equity:
+            resp = await self._client.get_price_history_every_minute(
+                symbol,
+                start_datetime=start,
+                need_extended_hours_data=True,
+            )
+        else:
+            resp = await self._client.get_price_history_every_thirty_minutes(
+                symbol,
+                start_datetime=start,
+                need_extended_hours_data=True,
+            )
+
         resp.raise_for_status()
         bars = resp.json()["candles"]
         result = []

@@ -2,10 +2,11 @@ import logging
 from datetime import timedelta
 
 import broker
+import config
 import db
 import websocket
 from db.instruments import Instrument
-from trader.controller import Controller, SUPPORT_RESISTANCE_DAYS
+from trader.controller import Controller
 from trader.trades_manager import TradesManager
 from utils import times
 
@@ -39,7 +40,7 @@ async def load_subscribed_instruments():
 
 
 async def _create_controller(symbol: str) -> Controller:
-    start_time = times.days_ago(14)
+    start_time = times.days_ago(config.TF_LOOK_BACK_DAYS)
     price = await db.DB_HELPER.latest_prices(symbol, start_time)
     if price:
         _LOGGER.info(f"Fetched the last {price} for {symbol}")
@@ -50,7 +51,7 @@ async def _create_controller(symbol: str) -> Controller:
 
     await db.DB_HELPER.save_prices(new_prices)
 
-    start_time = times.days_ago(SUPPORT_RESISTANCE_DAYS)
+    start_time = times.days_ago(config.TF_LOOK_BACK_DAYS)
     prices = await db.DB_HELPER.all_prices(symbol, start_time)
     if len(prices) == 0:
         raise ValueError(f"No price found for {symbol}")

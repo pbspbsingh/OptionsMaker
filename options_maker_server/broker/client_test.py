@@ -1,13 +1,13 @@
 import asyncio
-import datetime
 import logging
 import os
 import sys
 
 import broker
-from broker.models import OptionResponse
 
-OPTION_SYMBOL = "AAPL 250613P00210000"
+# OPTION_SYMBOL = "META 250627C00677500"
+OPTION_SYMBOL = "AAPL 250620C00200000"
+
 
 async def main():
     print(os.getcwd())
@@ -18,6 +18,9 @@ async def main():
     res = await schwab_client.get_quotes(symbols=[OPTION_SYMBOL])
     res.raise_for_status()
     print(res.json())
+
+    client._stream_client.add_level_one_option_handler(lambda o: print(o["content"]))
+    await client._stream_client.level_one_option_subs([OPTION_SYMBOL])
 
     await asyncio.sleep(30)
     print("Done")

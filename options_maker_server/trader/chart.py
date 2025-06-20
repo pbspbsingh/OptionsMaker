@@ -4,6 +4,7 @@ import numpy as np
 import pandas as pd
 import talib
 
+import config
 import db
 from utils.prices import Divergence, agg_prices, trim_prices, compute_divergence
 
@@ -26,8 +27,8 @@ class Chart:
 
         self.prices = agg_prices(new_prices, self.agg_time)
         self.prices["rsi"] = talib.RSI(self.prices.close)
-        self.prices["ma"] = talib.EMA(self.prices.close, timeperiod=20 if self.agg_time == "5Min" else 100)
-        self.prices = trim_prices(self.prices, 2 if self.agg_time == "5Min" else 5)
+        self.prices["ma"] = talib.EMA(self.prices.close, timeperiod=200)
+        self.prices = trim_prices(self.prices, config.TF_CHARTS[self.agg_time])
 
         divergence = compute_divergence(self.prices, cutoff=(25, 75))
         if divergence is not None:

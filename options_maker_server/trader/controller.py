@@ -3,15 +3,11 @@ from typing import Any
 
 import pandas as pd
 
+import config
 import websocket as ws
 from db.instruments import Price
 from trader.chart import Chart
 from utils.prices import prices_to_df, PriceLevel, Divergence
-
-SUPPORT_RESISTANCE_DAYS = 7
-PRICE_LEVEL_TIME_FRAME = "60min"
-CHARTS = ["5Min", "30Min"]
-
 
 class Controller:
     symbol: str
@@ -25,7 +21,9 @@ class Controller:
 
         self._lower_time_frame_prices = prices_to_df(prices)
         self._price_levels = []
-        self._charts = [Chart(symbol, time, divs.get(time, [])) for time in CHARTS]
+
+        charts = config.TF_CHARTS.keys()
+        self._charts = [Chart(symbol, time, divs.get(time, [])) for time in charts]
 
         self._update_prices()
 
