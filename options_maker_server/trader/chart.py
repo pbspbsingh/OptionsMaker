@@ -31,10 +31,17 @@ class Chart:
         self.prices = trim_prices(self.prices, config.TF_CHARTS[self.agg_time])
 
         divergence = compute_divergence(self.prices, cutoff=(30, 70, False))
+        div_updated = False
         if divergence is not None:
             self._clear_overlapping(divergence)
             self._divergences.append(divergence)
+            div_updated = True
+        elif (len(self._divergences) > 0 and
+              int(self._divergences[-1].found_at.timestamp()) == int(self.prices.index[-1].timestamp())):
+            self._divergences.pop()
+            div_updated = True
 
+        if div_updated:
             db.DB_HELPER.save_divergences(self.symbol, self.agg_time, self._divergences)
 
     @property

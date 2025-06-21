@@ -78,3 +78,14 @@ if __name__ == "__main__":
         today = datetime.date(2025, 6, x)
         start, end = options_expiry_range(today)
         print(today, start, end)
+
+    print()
+
+    import pandas as pd
+    dt = pd.to_datetime(now())
+    ts = int(dt.timestamp())
+    print(dt, ts, dt.tz)
+
+    dt = pd.to_datetime(ts, unit='s')
+    print(dt.utcnow().tz_convert(MY_TIME_ZONE), int(dt.timestamp()))
+

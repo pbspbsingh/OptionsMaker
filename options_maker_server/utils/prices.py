@@ -159,6 +159,7 @@ class Divergence:
     end: pd.Timestamp
     end_price: float
     end_rsi: float
+    found_at: pd.Timestamp
 
     def to_json(self) -> dict[str, Any]:
         self.end.timestamp()
@@ -170,6 +171,7 @@ class Divergence:
             "end": int(self.end.tz_localize(None).timestamp()),
             "end_price": self.end_price,
             "end_rsi": self.end_rsi,
+            "found_at": int(self.found_at.timestamp()),
         }
 
     def __str__(self):
@@ -188,6 +190,7 @@ class Divergence:
             end=pd.to_datetime(data["end"], unit="s").tz_localize(MY_TIME_ZONE),
             end_price=data["end_price"],
             end_rsi=data["end_rsi"],
+            found_at=pd.to_datetime(data["found_at"], unit="s").utcnow().tz_convert(MY_TIME_ZONE),
         )
 
 
@@ -197,7 +200,6 @@ def compute_divergence(
         div_order: int = 3,
         cutoff: tuple[float, float, bool] | None = None,
 ) -> Optional[Divergence]:
-    df = df.iloc[:-1]  # Ignore the latest price point, since this one is still updating
     length = df.shape[0]
     if length < 3:
         return None
@@ -208,6 +210,7 @@ def compute_divergence(
 
     div_type: DivergenceType
     ## Make sure that second last point is higher than neighbors or lower than it's neighbors
+    ## i.e. second last point is a peek point
     if (last.close < second_last.close > third_last.close) and (second_last.high > third_last.high):
         div_type = DivergenceType.Bearish
         extrema = argrelextrema(df.rsi.values, np.greater, order=div_order)[0]
@@ -258,6 +261,7 @@ def _find_divergence(
                         end=df.index[last_idx],
                         end_price=series.iloc[last_idx],
                         end_rsi=df.rsi.iloc[last_idx],
+                        found_at=df.index[-1],
                     )
         prev_rsi_angle = rsi_angle
     return result
