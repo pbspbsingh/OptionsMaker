@@ -1,0 +1,10 @@
+[package]
+name = "util"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+chrono = { workspace = true, features = ["serde"] }
+chrono-tz = "0.10"
+
+reqwest = { version = "0.12", features = ["rustls-tls", "cookies", "brotli", "gzip", "deflate", "json"] }

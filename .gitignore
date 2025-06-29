@@ -11,3 +11,8 @@ config.py
 .venv
 
 schwab_token.json.old
+options_maker_rs/refresh_token.json
+options_maker_rs/.env
+.gitignore
+options_maker_rs/key.pem
+options_maker_rs/cert.pem
