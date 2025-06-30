@@ -1,8 +1,6 @@
-mod auth;
+use super::{Candle, Frequency, Period, SchwabResult};
+use super::{SchwabError, auth};
 
-use super::SchwabResult;
-use super::{SchwabClient, SchwabError};
-use crate::real_client::auth::fetch_access_token;
 use app_config::APP_CONFIG;
 use chrono::{DateTime, Duration, Local};
 use serde::{Deserialize, Serialize};
@@ -10,11 +8,10 @@ use std::sync::Arc;
 use tokio::fs;
 use tokio::sync::RwLock;
 use tracing::{debug, info, warn};
+use util::http::HTTP_CLIENT;
 use util::time;
 
-pub const API_URL: &str = "https://api.schwabapi.com/v1";
-
-pub struct RealClient {
+pub struct SchwabClient {
     refresh_token: RefreshToken,
     access_token: Arc<RwLock<AccessToken>>,
 }
@@ -33,7 +30,7 @@ struct AccessToken {
     expires_at: DateTime<Local>,
 }
 
-impl RealClient {
+impl SchwabClient {
     pub async fn init() -> SchwabResult<Self> {
         let token_file = &APP_CONFIG.token_file;
         if fs::try_exists(token_file).await? {
@@ -46,12 +43,13 @@ impl RealClient {
                     "Refresh token will expire on {}, fetching new access token",
                     refresh_token.expires_at
                 );
-                let (access_token, expires_in) = fetch_access_token(&refresh_token.refresh_token)
-                    .await
-                    .map_err(|e| SchwabError::AuthError(e))?;
+                let (access_token, expires_in) =
+                    auth::fetch_access_token(&refresh_token.refresh_token)
+                        .await
+                        .map_err(|e| SchwabError::AuthError(e))?;
                 let expires_at = time::now() + Duration::seconds(expires_in);
                 info!("Fetched new access token, expires at {expires_at}");
-                let client = RealClient {
+                let client = SchwabClient {
                     refresh_token,
                     access_token: Arc::new(RwLock::new(AccessToken {
                         access_token,
@@ -91,7 +89,7 @@ impl RealClient {
             fs::canonicalize(token_file).await?
         );
 
-        let client = RealClient {
+        let client = SchwabClient {
             refresh_token,
             access_token: Arc::new(RwLock::new(AccessToken {
                 access_token: token.access_token,
@@ -119,7 +117,7 @@ impl RealClient {
 
                 debug!("Access token is about to expire, let's refresh it");
                 let (new_token, expires_in) =
-                    match fetch_access_token(&refresh_token.refresh_token).await {
+                    match auth::fetch_access_token(&refresh_token.refresh_token).await {
                         Ok(a) => a,
                         Err(e) => {
                             warn!("Failed to refresh access token: {e}");
@@ -136,6 +134,81 @@ impl RealClient {
             }
         });
     }
-}
 
-impl SchwabClient for RealClient {}
+    pub async fn get_price_history(
+        &self,
+        symbol: &str,
+        frequency: Frequency,
+        start_date: Option<DateTime<Local>>,
+        end_date: Option<DateTime<Local>>,
+        period: Option<Period>,
+        need_extended_hours_data: bool,
+    ) -> SchwabResult<Vec<Candle>> {
+        #[derive(Debug, Deserialize)]
+        pub struct PriceHistoryResponse {
+            pub symbol: String,
+            pub candles: Vec<Ohlc>,
+        }
+        #[derive(Debug, Deserialize)]
+        struct Ohlc {
+            open: f64,
+            high: f64,
+            low: f64,
+            close: f64,
+            volume: u64,
+            datetime: i64,
+        }
+
+        let auth_token = self.access_token.read().await.access_token.clone();
+        let url = format!("{}/marketdata/v1/pricehistory", super::API_URL);
+        let mut query_params = vec![
+            ("symbol", symbol.to_uppercase()),
+            (
+                "needExtendedHoursData",
+                need_extended_hours_data.to_string(),
+            ),
+        ];
+        let (freq_type, freq_val) = frequency.to_params();
+        query_params.push(("frequencyType", freq_type));
+        query_params.push(("frequency", freq_val));
+        if let (Some(start), Some(end)) = (start_date, end_date) {
+            query_params.push(("startDate", start.timestamp().to_string()));
+            query_params.push(("endDate", end.timestamp().to_string()));
+        } else if let Some(period) = period {
+            let (period_type, period_val) = period.to_params();
+            query_params.push(("periodType", period_type));
+            query_params.push(("period", period_val));
+        }
+
+        let response = HTTP_CLIENT
+            .get(&url)
+            .bearer_auth(auth_token)
+            .query(&query_params)
+            .send()
+            .await?;
+        if !response.status().is_success() {
+            return Err(SchwabError::ApiError(
+                response.status().as_u16(),
+                response.text().await?,
+            ));
+        }
+        let history = response.json::<PriceHistoryResponse>().await?;
+        info!(
+            "Fetched {} candles for {}",
+            history.candles.len(),
+            history.symbol
+        );
+        Ok(history
+            .candles
+            .into_iter()
+            .map(|candle| Candle {
+                open: candle.open,
+                low: candle.low,
+                high: candle.high,
+                close: candle.close,
+                volume: candle.volume,
+                time: time::from_ts(candle.datetime / 1000),
+            })
+            .collect())
+    }
+}
