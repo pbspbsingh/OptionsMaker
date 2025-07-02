@@ -1,0 +1,19 @@
+[package]
+name = "ta_lib"
+version = "0.1.0"
+edition = "2024"
+
+description = "Rust bindings for TA-Lib"
+license = "MIT OR Apache-2.0"
+
+
+[dependencies]
+thiserror = "2"
+
+[build-dependencies]
+bindgen = "0.72"
+cc = "1.0"
+
+[lib]
+name = "ta_lib"
+crate-type = ["rlib", "cdylib"]

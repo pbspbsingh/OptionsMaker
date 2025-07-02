@@ -8,6 +8,7 @@ use serde_json::{Value, json};
 use std::collections::HashMap;
 use std::sync::Arc;
 use std::sync::atomic::{AtomicU32, Ordering};
+use std::time::Instant;
 use tokio::net::TcpStream;
 use tokio::sync::RwLock;
 use tokio_tungstenite::tungstenite::Message;
@@ -36,6 +37,7 @@ impl Streamer {
     pub async fn connect(
         access_token: Arc<RwLock<AccessToken>>,
     ) -> SchwabResult<(Self, WebSocketStream<MaybeTlsStream<TcpStream>>)> {
+        let start = Instant::now();
         let token = access_token.read().await.access_token.clone();
         let streamer_info = Self::fetch_streamer_info(&token).await?;
 
@@ -82,6 +84,7 @@ impl Streamer {
                 let Some((code, msg)) = Self::get_login_response(data, request_id) else {
                     continue;
                 };
+                info!("Finished Websocket connection in {:?}", start.elapsed());
                 return if code == 0 {
                     let quote_cache = HashMap::new();
                     Ok((

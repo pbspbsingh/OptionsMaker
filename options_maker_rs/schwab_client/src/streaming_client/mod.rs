@@ -15,8 +15,6 @@ use tracing::{debug, info, warn};
 
 mod streamer;
 
-const RETRY_WAIT: Duration = Duration::from_secs(10);
-
 pub struct StreamingClient {
     cmd_sender: tokio::sync::mpsc::UnboundedSender<StreamCommand>,
     response_receiver: tokio::sync::broadcast::Receiver<StreamResponse>,
@@ -189,7 +187,7 @@ impl StreamingClient {
                     }
                 }
 
-                let mut wait_time = RETRY_WAIT;
+                let mut wait_time = Duration::from_secs(15);
                 (config, ws_stream) = loop {
                     if !clients_alive() {
                         break 'main;
