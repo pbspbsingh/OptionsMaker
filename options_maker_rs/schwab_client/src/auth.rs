@@ -1,3 +1,4 @@
+use crate::API_URL;
 use anyhow::Context;
 use app_config::APP_CONFIG;
 use axum::Router;
@@ -32,7 +33,7 @@ pub async fn init_auth() -> anyhow::Result<TokenResponse> {
         .with_context(|| format!("Couldn't parse {}", APP_CONFIG.schwab_callback_url))?;
     info!("Initializing client with callback url: {redirect_url}");
 
-    let auth_url = format!("{}/v1/oauth/authorize", super::API_URL);
+    let auth_url = format!("{}/v1/oauth/authorize", API_URL);
     let mut auth_url =
         Url::parse(&auth_url).with_context(|| format!("Couldn't parse {auth_url}"))?;
     auth_url
@@ -163,7 +164,7 @@ async fn exchange_tokens(code: &str, redirect_uri: &str) -> anyhow::Result<Token
     );
     info!("Sending post request for token exchange");
     let response = HTTP_CLIENT
-        .post(format!("{}/v1/oauth/token", super::API_URL))
+        .post(format!("{}/v1/oauth/token", API_URL))
         .header(header::AUTHORIZATION, auth_header)
         .header(header::CONTENT_TYPE, "application/x-www-form-urlencoded")
         .form(&params)
@@ -194,7 +195,7 @@ pub async fn fetch_access_token(refresh_token: &str) -> anyhow::Result<(String, 
 
     info!("Sending post request for token exchange");
     let response = HTTP_CLIENT
-        .post(format!("{}/v1/oauth/token", super::API_URL))
+        .post(format!("{}/v1/oauth/token", API_URL))
         .header(
             header::AUTHORIZATION,
             format!("Basic {}", encoded_credentials),
@@ -212,14 +213,11 @@ pub async fn fetch_access_token(refresh_token: &str) -> anyhow::Result<(String, 
         ));
     }
 
-    #[derive(Debug, Deserialize)]
+    #[derive(Deserialize)]
     struct AccessResponse {
         access_token: String,
-        token_type: String,
         expires_in: i64,
-        scope: String,
     }
-
     let response = response
         .json::<AccessResponse>()
         .await

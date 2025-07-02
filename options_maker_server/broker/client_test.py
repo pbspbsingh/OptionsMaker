@@ -35,6 +35,9 @@ async def main():
 
 
 if __name__ == "__main__":
+    opt = OptionSymbol("META", "250703", "C", "722.5")
+    print(opt.build())
+
     print("Testing schwab client")
     os.chdir("../")
     logging.basicConfig(

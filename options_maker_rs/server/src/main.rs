@@ -1,5 +1,7 @@
 use app_config::APP_CONFIG;
-use schwab_client::Frequency;
+
+use schwab_client::schwab_client::SchwabClient;
+use schwab_client::streaming_client::Subscription;
 use time::macros::format_description;
 use tracing::info;
 use tracing_subscriber::EnvFilter;
@@ -20,12 +22,22 @@ async fn main() -> anyhow::Result<()> {
         .init();
     info!("Starting server...");
 
-    let client = schwab_client::SchwabClient::init().await?;
+    let client = SchwabClient::init().await?;
 
-    let prices = client
-        .get_price_history("/MES", Frequency::Minute(30), None, None, None, true)
-        .await?;
-    println!("First: {:?}, last: {:?}", prices[0], prices.last().unwrap());
+    let quotes = client.get_quotes(["META  250703C00722500", "AAPL"]).await?;
+    println!("{quotes:#?}");
+
+    let sc = client.create_streaming_client().await?;
+    let mut recv = sc.receiver();
+    tokio::spawn(async move {
+        while let Ok(msg) = recv.recv().await {
+            info!("Received message: {:?}", msg);
+        }
+    });
+
+    sc.subscribe(Subscription::OptionsLevelOne, ["META  250703C00722500"]);
+    sc.subscribe(Subscription::EquityLevelOne, ["META", "GOOG", "AAPL"]);
+    tokio::time::sleep(tokio::time::Duration::from_secs(120)).await;
 
     Ok(())
 }
