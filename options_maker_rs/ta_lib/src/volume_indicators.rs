@@ -1,4 +1,4 @@
-use crate::ta_lib::*;
+use crate::ta::*;
 use crate::{Result, TALibError};
 
 /// Accumulation/Distribution Line

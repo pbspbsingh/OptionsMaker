@@ -1,6 +1,6 @@
 pub mod momentum_indicators;
 pub mod overlap_studies;
-pub mod ta_lib;
+pub mod ta;
 pub mod volume_indicators;
 
 #[cfg(test)]
