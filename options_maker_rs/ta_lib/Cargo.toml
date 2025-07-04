@@ -11,8 +11,8 @@ license = "MIT OR Apache-2.0"
 thiserror = "2"
 
 [build-dependencies]
-bindgen = "0.72"
 cc = "1.0"
+bindgen = "0.72"
 
 [lib]
 name = "ta_lib"

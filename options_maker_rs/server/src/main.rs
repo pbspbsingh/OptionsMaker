@@ -1,8 +1,11 @@
+use anyhow::Context;
 use app_config::APP_CONFIG;
+use axum::Router;
+use axum::routing::get;
+use std::net::Ipv4Addr;
 
-use schwab_client::schwab_client::SchwabClient;
-use schwab_client::streaming_client::Subscription;
 use time::macros::format_description;
+use tokio::net::TcpListener;
 use tracing::info;
 use tracing_subscriber::EnvFilter;
 use tracing_subscriber::fmt::time::LocalTime;
@@ -23,24 +26,20 @@ async fn main() -> anyhow::Result<()> {
         )))
         .with_level(true)
         .init();
-    info!("Starting server...");
 
-    let client = SchwabClient::init().await?;
+    info!("Initializing database...");
+    persist::init().await?;
 
-    let quotes = client.get_quotes(["META  250703C00722500", "AAPL"]).await?;
-    println!("{quotes:#?}");
+    let http_port = APP_CONFIG.http_port;
+    info!("Starting server at port {http_port}");
+    let tcp_listener = TcpListener::bind((Ipv4Addr::UNSPECIFIED, http_port))
+        .await
+        .with_context(|| format!("Couldn't bind to {http_port}"))?;
 
-    let sc = client.create_streaming_client().await?;
-    let mut recv = sc.receiver();
-    tokio::spawn(async move {
-        while let Ok(msg) = recv.recv().await {
-            info!("Received message: {:?}", msg);
-        }
-    });
-
-    sc.subscribe(Subscription::OptionsLevelOne, ["META  250703C00722500"]);
-    sc.subscribe(Subscription::EquityLevelOne, ["META", "GOOG", "AAPL"]);
-    tokio::time::sleep(tokio::time::Duration::from_secs(120)).await;
+    let router = Router::new().route("/hello", get(async || "Hello world!"));
+    axum::serve(tcp_listener, router)
+        .await
+        .context("server failed to start")?;
 
     Ok(())
 }

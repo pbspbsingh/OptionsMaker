@@ -8,6 +8,10 @@ pub static APP_CONFIG: LazyLock<AppConfig> = LazyLock::new(|| {
     let schwab_client_id = var("SCHWAB_CLIENT_ID");
     let schwab_client_secret = var("SCHWAB_CLIENT_SECRET");
     let schwab_callback_url = var("SCHWAB_CALLBACK_URL");
+    let db_url = var("DATABASE_URL");
+    let http_port = var("HTTP_PORT")
+        .parse::<u16>()
+        .unwrap_or_else(|e| panic!("Failed to parse HTTP_PORT: {e}"));
 
     AppConfig {
         rust_log,
@@ -17,6 +21,8 @@ pub static APP_CONFIG: LazyLock<AppConfig> = LazyLock::new(|| {
         schwab_client_id,
         schwab_client_secret,
         schwab_callback_url,
+        db_url,
+        http_port,
     }
 });
 
@@ -29,6 +35,8 @@ pub struct AppConfig {
     pub schwab_client_id: String,
     pub schwab_client_secret: String,
     pub schwab_callback_url: String,
+    pub db_url: String,
+    pub http_port: u16,
 }
 
 fn var(key: impl AsRef<str>) -> String {

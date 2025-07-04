@@ -1,0 +1,9 @@
+[package]
+name = "persist"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+app_config = { path = "../app_config" }
+sqlx = { version = "0.8", features = ["chrono", "json", "sqlite", "runtime-tokio"] }
+

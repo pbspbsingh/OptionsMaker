@@ -1,0 +1,33 @@
+use app_config::APP_CONFIG;
+pub use sqlx::Result;
+use sqlx::SqlitePool;
+use sqlx::sqlite::{
+    SqliteAutoVacuum, SqliteConnectOptions, SqliteJournalMode, SqlitePoolOptions, SqliteSynchronous,
+};
+use std::str::FromStr;
+use std::sync::OnceLock;
+use std::time::Duration;
+
+static DB_POOL: OnceLock<SqlitePool> = OnceLock::new();
+
+pub async fn init() -> Result<()> {
+    let options = SqliteConnectOptions::from_str(&APP_CONFIG.db_url)?
+        .auto_vacuum(SqliteAutoVacuum::Incremental)
+        .journal_mode(SqliteJournalMode::Memory)
+        .synchronous(SqliteSynchronous::Normal)
+        .shared_cache(true)
+        .create_if_missing(true);
+
+    let pool = SqlitePoolOptions::new()
+        .min_connections(2)
+        .acquire_timeout(Duration::from_secs(5))
+        .test_before_acquire(true)
+        .connect_with(options)
+        .await?;
+
+    sqlx::migrate!("./migrations").run(&pool).await?;
+
+    DB_POOL.set(pool).expect("failed to set DB pool");
+
+    Ok(())
+}
