@@ -2132,6 +2132,7 @@ dependencies = [
  "schwab_client",
  "serde",
  "serde_json",
+ "ta_lib",
  "thiserror",
  "time",
  "tokio",

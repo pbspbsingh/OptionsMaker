@@ -20,7 +20,7 @@ async fn add_new_ticker(Query(symbols): Query<HashMap<String, String>>) -> AppRe
     debug!("Fetched instrument {instrument:?}");
 
     persist::ticker::save_instrument(&instrument).await?;
-    analyzer::init_controller(instrument).await?;
+    analyzer::init_controller(&instrument).await?;
 
     Ok(())
 }

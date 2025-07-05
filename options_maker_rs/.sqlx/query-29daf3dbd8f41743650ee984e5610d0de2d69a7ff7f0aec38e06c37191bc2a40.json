@@ -1,0 +1,12 @@
+{
+  "db_name": "SQLite",
+  "query": "\n            INSERT INTO symbols (symbol, cusip, exchange, asset_type, description, fundamental, created_at)\n            VALUES ($1, $2, $3, $4, $5, $6, $7)\n          ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Right": 7
+    },
+    "nullable": []
+  },
+  "hash": "29daf3dbd8f41743650ee984e5610d0de2d69a7ff7f0aec38e06c37191bc2a40"
+}

@@ -26,3 +26,5 @@ axum = { version = "0.8", features = ["ws"] }
 persist = { path = "../persist" }
 serde = { workspace = true }
 serde_json = { workspace = true }
+
+ta_lib = { path = "../ta_lib" }

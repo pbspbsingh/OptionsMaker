@@ -1,6 +1,6 @@
 use crate::db;
 use schwab_client::Candle;
-use sqlx::types::chrono::{DateTime, Local, NaiveDateTime};
+use sqlx::types::chrono::{DateTime, Local};
 
 pub async fn recent_price(symbol: &str) -> sqlx::Result<Option<Candle>> {
     sqlx::query!(

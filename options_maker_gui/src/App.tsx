@@ -25,7 +25,7 @@ export default function App(): JSX.Element {
     }, []);
     return (
         <AppStateContext.Provider value={state}>
-            <AppReducerContext value={dispatcher}>
+            <AppReducerContext.Provider value={dispatcher}>
                 <div className="app container-fluid">
                     <BrowserRouter>
                         <SnackbarProvider>
@@ -41,7 +41,7 @@ export default function App(): JSX.Element {
                         </SnackbarProvider>
                     </BrowserRouter>
                 </div>
-            </AppReducerContext>
+            </AppReducerContext.Provider>
         </AppStateContext.Provider>
     );
 }

@@ -7,6 +7,7 @@ use chrono::{DateTime, Local};
 use schwab_client::{Candle, Instrument};
 use std::collections::HashMap;
 use tokio::sync::Mutex;
+use tracing::info;
 
 pub struct ReplayProvider {
     replay_data: Mutex<HashMap<String, Vec<Candle>>>,
@@ -45,8 +46,10 @@ impl DataProvider for ReplayProvider {
         let candles = persist::prices::load_prices(symbol, start, None).await?;
         log_candles("Loaded for replay", &candles);
         let (first_batch, second_batch) = if let Some(replay_start) = replay_start {
+            info!("Will replay data after {replay_start}");
             candles.into_iter().partition(|c| c.time < replay_start)
         } else {
+            info!("Will replay data after last working day");
             split_by_last_work_day(candles)
         };
         if !second_batch.is_empty() {

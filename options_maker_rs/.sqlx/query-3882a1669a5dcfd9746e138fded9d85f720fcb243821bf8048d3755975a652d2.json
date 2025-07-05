@@ -1,0 +1,50 @@
+{
+  "db_name": "SQLite",
+  "query": "\n            SELECT ts, open, low, high, close, volume\n            FROM prices\n            WHERE symbol = $1 AND ts >= $2 AND ts <= $3\n            ORDER BY ts ASC\n        ",
+  "describe": {
+    "columns": [
+      {
+        "name": "ts",
+        "ordinal": 0,
+        "type_info": "Datetime"
+      },
+      {
+        "name": "open",
+        "ordinal": 1,
+        "type_info": "Float"
+      },
+      {
+        "name": "low",
+        "ordinal": 2,
+        "type_info": "Float"
+      },
+      {
+        "name": "high",
+        "ordinal": 3,
+        "type_info": "Float"
+      },
+      {
+        "name": "close",
+        "ordinal": 4,
+        "type_info": "Float"
+      },
+      {
+        "name": "volume",
+        "ordinal": 5,
+        "type_info": "Integer"
+      }
+    ],
+    "parameters": {
+      "Right": 3
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      false,
+      false,
+      false
+    ]
+  },
+  "hash": "3882a1669a5dcfd9746e138fded9d85f720fcb243821bf8048d3755975a652d2"
+}
