@@ -1,5 +1,5 @@
 use app_config::APP_CONFIG;
-pub use sqlx::Result;
+
 use sqlx::SqlitePool;
 use sqlx::sqlite::{
     SqliteAutoVacuum, SqliteConnectOptions, SqliteJournalMode, SqlitePoolOptions, SqliteSynchronous,
@@ -8,12 +8,18 @@ use std::str::FromStr;
 use std::sync::OnceLock;
 use std::time::Duration;
 
+pub use sqlx::Error;
+pub use sqlx::Result;
+
+pub mod prices;
+pub mod ticker;
+
 static DB_POOL: OnceLock<SqlitePool> = OnceLock::new();
 
 pub async fn init() -> Result<()> {
     let options = SqliteConnectOptions::from_str(&APP_CONFIG.db_url)?
         .auto_vacuum(SqliteAutoVacuum::Incremental)
-        .journal_mode(SqliteJournalMode::Memory)
+        .journal_mode(SqliteJournalMode::Wal)
         .synchronous(SqliteSynchronous::Normal)
         .shared_cache(true)
         .create_if_missing(true);
@@ -30,4 +36,8 @@ pub async fn init() -> Result<()> {
     DB_POOL.set(pool).expect("failed to set DB pool");
 
     Ok(())
+}
+
+pub fn db() -> &'static SqlitePool {
+    DB_POOL.get().expect("failed to get DB pool")
 }

@@ -1,12 +1,12 @@
-use super::{API_URL, Account, Quote, SchwabError};
+use super::{API_URL, Account, Instrument, Quote, SchwabError};
 use super::{Candle, SchwabResult};
-use std::collections::HashMap;
-
 use app_config::APP_CONFIG;
 use chrono::{DateTime, Duration, Local};
 use itertools::Itertools;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
+use std::collections::HashMap;
+use std::fmt::Display;
 use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
 use tokio::fs;
@@ -52,6 +52,16 @@ pub enum Period {
     Month(u32),
     Year(u32),
     Ytd,
+}
+
+#[derive(Debug, Clone)]
+pub enum SearchProjection {
+    Search,
+    Fundamental,
+    SymbolSearch,
+    SymbolRegex,
+    DescSearch,
+    DescRegex,
 }
 
 impl SchwabClient {
@@ -162,6 +172,10 @@ impl SchwabClient {
         });
     }
 
+    pub async fn create_streaming_client(&self) -> SchwabResult<StreamingClient> {
+        StreamingClient::init(self.access_token.clone(), self.is_active.clone()).await
+    }
+
     pub async fn get_accounts(&self) -> SchwabResult<Vec<Account>> {
         #[derive(Deserialize)]
         #[serde(rename_all = "camelCase")]
@@ -231,14 +245,15 @@ impl SchwabClient {
         query_params.push(("frequencyType", freq_type));
         query_params.push(("frequency", freq_val));
         if let (Some(start), Some(end)) = (start_date, end_date) {
-            query_params.push(("startDate", start.timestamp().to_string()));
-            query_params.push(("endDate", end.timestamp().to_string()));
+            query_params.push(("startDate", format!("{}", start.timestamp_millis())));
+            query_params.push(("endDate", format!("{}", end.timestamp_millis())));
+        } else if let Some(start) = start_date {
+            query_params.push(("startDate", format!("{}", start.timestamp_millis())));
         } else if let Some(period) = period {
             let (period_type, period_val) = period.to_params();
             query_params.push(("periodType", period_type));
             query_params.push(("period", period_val));
         }
-
         let response = HTTP_CLIENT
             .get(&url)
             .bearer_auth(self.access_token.read().await.access_token.clone())
@@ -336,8 +351,39 @@ impl SchwabClient {
         Ok(response)
     }
 
-    pub async fn create_streaming_client(&self) -> SchwabResult<StreamingClient> {
-        StreamingClient::init(self.access_token.clone(), self.is_active.clone()).await
+    pub async fn search(
+        &self,
+        symbol: impl AsRef<str>,
+        projection: SearchProjection,
+    ) -> SchwabResult<Instrument> {
+        let symbol = symbol.as_ref();
+        let url = format!("{API_URL}/marketdata/v1/instruments");
+        let response = HTTP_CLIENT
+            .get(url)
+            .query(&[("symbol", symbol), ("projection", &projection.to_string())])
+            .bearer_auth(self.access_token.read().await.access_token.clone())
+            .send()
+            .await?;
+        if !response.status().is_success() {
+            return Err(SchwabError::ApiError(
+                response.status().as_u16(),
+                format!("Failed to search {}", response.text().await?),
+            ));
+        }
+        let value = response.json::<Value>().await?;
+        let instruments = value
+            .as_object()
+            .and_then(|obj| obj.get("instruments"))
+            .and_then(Value::as_array)
+            .cloned()
+            .unwrap_or_else(|| Vec::new());
+        let instrument = instruments
+            .into_iter()
+            .filter_map(|instrument| serde_json::from_value::<Instrument>(instrument).ok())
+            .find_or_first(|instrument| instrument.symbol == symbol);
+        instrument.ok_or(SchwabError::Unexpected(format!(
+            "Didn't find {symbol} in {value}"
+        )))
     }
 }
 
@@ -366,5 +412,34 @@ impl Period {
             Period::Year(count) => ("year".to_string(), count.to_string()),
             Period::Ytd => ("ytd".to_string(), "1".to_string()),
         }
+    }
+}
+
+impl Display for SearchProjection {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let name = match self {
+            SearchProjection::Search => "search",
+            SearchProjection::Fundamental => "fundamental",
+            SearchProjection::SymbolSearch => "symbol-search",
+            SearchProjection::SymbolRegex => "symbol-regex",
+            SearchProjection::DescSearch => "desc-search",
+            SearchProjection::DescRegex => "desc-regex",
+        };
+        write!(f, "{name}")
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use crate::schwab_client::{SchwabClient, SearchProjection};
+
+    #[tokio::test]
+    async fn test_schwab_client() -> anyhow::Result<()> {
+        util::test::init_test();
+
+        let client = SchwabClient::init().await?;
+        let search_res = client.search("nvda", SearchProjection::DescSearch).await?;
+        println!("{:?}", search_res);
+        Ok(())
     }
 }

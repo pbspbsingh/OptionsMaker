@@ -187,7 +187,7 @@ impl StreamingClient {
                     }
                 }
 
-                let mut wait_time = Duration::from_secs(15);
+                let mut wait_time = Duration::from_secs(30);
                 (config, ws_stream) = loop {
                     if !clients_alive() {
                         break 'main;

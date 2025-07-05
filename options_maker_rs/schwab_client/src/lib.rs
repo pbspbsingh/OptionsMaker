@@ -94,3 +94,71 @@ pub struct Quote {
     #[serde(deserialize_with = "util::time::parse_timestamp_opt")]
     pub quote_time: Option<DateTime<Local>>,
 }
+
+#[derive(Debug, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct Instrument {
+    pub symbol: String,
+    pub exchange: String,
+    pub asset_type: String,
+    pub cusip: Option<String>,
+    pub description: String,
+    pub fundamental: Option<FundamentalData>,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct FundamentalData {
+    pub symbol: String,
+    #[serde(rename = "high52")]
+    pub high_52: Option<f64>,
+    #[serde(rename = "low52")]
+    pub low_52: Option<f64>,
+    pub dividend_amount: Option<f64>,
+    pub dividend_yield: Option<f64>,
+    pub dividend_date: Option<String>,
+    pub pe_ratio: Option<f64>,
+    pub peg_ratio: Option<f64>,
+    pub pb_ratio: Option<f64>,
+    pub pr_ratio: Option<f64>,
+    pub pcf_ratio: Option<f64>,
+    pub gross_margin_ttm: Option<f64>,
+    pub gross_margin_mrq: Option<f64>,
+    pub net_profit_margin_ttm: Option<f64>,
+    pub net_profit_margin_mrq: Option<f64>,
+    pub operating_margin_ttm: Option<f64>,
+    pub operating_margin_mrq: Option<f64>,
+    pub return_on_equity: Option<f64>,
+    pub return_on_assets: Option<f64>,
+    pub return_on_investment: Option<f64>,
+    pub quick_ratio: Option<f64>,
+    pub current_ratio: Option<f64>,
+    pub interest_coverage: Option<f64>,
+    pub total_debt_to_capital: Option<f64>,
+    pub lt_debt_to_equity: Option<f64>,
+    pub total_debt_to_equity: Option<f64>,
+    pub eps_ttm: Option<f64>,
+    pub eps_change_percent_ttm: Option<f64>,
+    pub eps_change_year: Option<f64>,
+    pub eps_change: Option<f64>,
+    pub rev_change_year: Option<f64>,
+    pub rev_change_ttm: Option<f64>,
+    pub rev_change_in: Option<f64>,
+    pub shares_outstanding: Option<f64>,
+    pub market_cap_float: Option<f64>,
+    pub market_cap: Option<f64>,
+    pub book_value_per_share: Option<f64>,
+    pub short_int_to_float: Option<f64>,
+    pub short_int_day_to_cover: Option<f64>,
+    #[serde(rename = "divGrowthRate3Year")]
+    pub div_growth_rate_3_year: Option<f64>,
+    pub dividend_pay_amount: Option<f64>,
+    pub dividend_pay_date: Option<String>,
+    pub beta: Option<f64>,
+    #[serde(rename = "vol1DayAvg")]
+    pub vol_1_day_avg: Option<f64>,
+    #[serde(rename = "vol10DayAvg")]
+    pub vol_10_day_avg: Option<f64>,
+    #[serde(rename = "vol3MonthAvg")]
+    pub vol_3_month_avg: Option<f64>,
+}

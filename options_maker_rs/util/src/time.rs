@@ -1,4 +1,4 @@
-use chrono::{DateTime, Local};
+use chrono::{DateTime, Duration, Local, NaiveTime};
 use serde::{Deserialize, Deserializer};
 
 pub fn now() -> DateTime<Local> {
@@ -8,6 +8,12 @@ pub fn now() -> DateTime<Local> {
 pub fn from_ts(secs: i64) -> DateTime<Local> {
     let datetime = DateTime::from_timestamp(secs, 0).expect("invalid or out-of-range datetime");
     datetime.with_timezone(&Local)
+}
+
+pub fn days_ago(days: i64) -> DateTime<Local> {
+    let time = Local::now() - Duration::days(days);
+    time.with_time(NaiveTime::from_hms_opt(0, 0, 0).unwrap())
+        .unwrap()
 }
 
 pub fn parse_timestamp_opt<'de, D>(deserializer: D) -> Result<Option<DateTime<Local>>, D::Error>
@@ -20,10 +26,25 @@ where
 
 #[cfg(test)]
 mod test {
+    use chrono::{Local, Utc};
 
     #[test]
     fn test() {
         let time = super::now();
         println!("Now: {} {}", time, super::from_ts(time.timestamp()));
+
+        let days_ago = super::days_ago(5);
+        println!("Days Ago: {}", days_ago);
+
+        let naive = time.naive_local();
+        let tt = naive.and_local_timezone(Local).unwrap();
+        println!("Now: {} {} {}", time, naive, tt);
+    }
+
+    #[test]
+    fn test_timestamp() {
+        let time = super::now();
+        let utc = Utc::now();
+        println!("Now: {} {}", time.timestamp(), utc.timestamp());
     }
 }

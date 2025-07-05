@@ -1,9 +1,12 @@
+mod analyzer;
+mod app_error;
+mod ticker;
+mod websocket;
+
 use anyhow::Context;
 use app_config::APP_CONFIG;
 use axum::Router;
-use axum::routing::get;
 use std::net::Ipv4Addr;
-
 use time::macros::format_description;
 use tokio::net::TcpListener;
 use tracing::info;
@@ -29,6 +32,8 @@ async fn main() -> anyhow::Result<()> {
 
     info!("Initializing database...");
     persist::init().await?;
+    data_provider::init().await?;
+    analyzer::start_analysis().await?;
 
     let http_port = APP_CONFIG.http_port;
     info!("Starting server at port {http_port}");
@@ -36,7 +41,11 @@ async fn main() -> anyhow::Result<()> {
         .await
         .with_context(|| format!("Couldn't bind to {http_port}"))?;
 
-    let router = Router::new().route("/hello", get(async || "Hello world!"));
+    let api_routers = Router::new()
+        .nest("/ticker", ticker::router())
+        .merge(websocket::router());
+    let router = Router::new().nest("/api", api_routers);
+
     axum::serve(tcp_listener, router)
         .await
         .context("server failed to start")?;

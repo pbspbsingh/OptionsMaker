@@ -96,6 +96,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "async-trait"
+version = "0.1.88"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "e539d3fca749fcee5236ab05e93a52867dd549cc157c8cb7f99595f3cedffdb5"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn",
+]
+
+[[package]]
 name = "atoi"
 version = "2.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -525,6 +536,22 @@ name = "data-encoding"
 version = "2.9.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "2a2330da5de22e8a3cb63252ce2abb30116bf5265e89c0e01bc17015ce30a476"
+
+[[package]]
+name = "data_provider"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "app_config",
+ "async-trait",
+ "chrono",
+ "persist",
+ "schwab_client",
+ "serde",
+ "tokio",
+ "tracing",
+ "util",
+]
 
 [[package]]
 name = "der"
@@ -1553,7 +1580,10 @@ name = "persist"
 version = "0.1.0"
 dependencies = [
  "app_config",
+ "futures",
+ "schwab_client",
  "sqlx",
+ "util",
 ]
 
 [[package]]
@@ -2093,14 +2123,21 @@ dependencies = [
  "anyhow",
  "app_config",
  "axum",
+ "chrono",
+ "data_provider",
+ "futures",
  "mimalloc",
  "persist",
  "rustls",
  "schwab_client",
+ "serde",
+ "serde_json",
+ "thiserror",
  "time",
  "tokio",
  "tracing",
  "tracing-subscriber",
+ "util",
 ]
 
 [[package]]
@@ -2862,6 +2899,7 @@ dependencies = [
  "chrono",
  "reqwest",
  "serde",
+ "tracing-subscriber",
 ]
 
 [[package]]

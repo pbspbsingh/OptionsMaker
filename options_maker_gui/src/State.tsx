@@ -20,6 +20,9 @@ export type AppAction = {
 } | {
     action: "UPDATE_QUOTE",
     quote: Quote,
+} | {
+    action: "REPLAY_MODE",
+    data: ReplayMode,
 };
 
 export type Account = {
@@ -75,11 +78,18 @@ export type Quote = {
     last_price?: number,
 };
 
+export type ReplayMode = {
+    playing: boolean,
+    symbol: string,
+    speed: number,
+}
+
 export type AppState = {
     connected: boolean,
     account: Account,
     symbols: { [key: string]: Symbol },
     quotes: { [key: string]: Quote },
+    replay_mode: ReplayMode | null,
 };
 
 export const DEFAULT_APP_STATE: AppState = {
@@ -91,6 +101,7 @@ export const DEFAULT_APP_STATE: AppState = {
     },
     symbols: {},
     quotes: {},
+    replay_mode: null,
 };
 
 
@@ -138,6 +149,12 @@ export function appReducer(state: AppState, action: AppAction): AppState {
                     ...state.quotes,
                     [action.quote.symbol]: action.quote,
                 }
+            }
+        }
+        case 'REPLAY_MODE': {
+            return {
+                ...state,
+                replay_mode: action.data,
             }
         }
         default: {

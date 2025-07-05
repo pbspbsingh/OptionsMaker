@@ -5,5 +5,8 @@ edition = "2024"
 
 [dependencies]
 app_config = { path = "../app_config" }
-sqlx = { version = "0.8", features = ["chrono", "json", "sqlite", "runtime-tokio"] }
+sqlx = { version = "0.8", features = ["runtime-tokio", "chrono", "json", "sqlite"] }
+futures = { workspace = true }
 
+schwab_client = { path = "../schwab_client" }
+util = { path = "../util" }
