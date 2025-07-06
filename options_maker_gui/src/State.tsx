@@ -59,7 +59,9 @@ export type Divergence = {
 };
 
 export type Chart = {
+    timeframe: number,
     prices: Price[],
+    rsiBracket?: number[],
     divergences: Divergence[],
 };
 
@@ -68,7 +70,7 @@ export type Symbol = {
     last_updated: number,
     atr?: number,
     price_levels: PriceLevel[],
-    charts: { [time_frame: string]: Chart },
+    charts: Chart[],
 }
 
 export type Quote = {

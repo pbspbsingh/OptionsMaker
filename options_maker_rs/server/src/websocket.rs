@@ -1,3 +1,5 @@
+use crate::analyzer;
+use crate::analyzer::AnalyzerCmd;
 use axum::Router;
 use axum::extract::WebSocketUpgrade;
 use axum::extract::ws::{Message, WebSocket};
@@ -50,6 +52,7 @@ async fn handle_websocket(socket: WebSocket) -> anyhow::Result<()> {
     let mut receiver = WS_CHANNEL.1.resubscribe();
 
     publish("REPLAY_MODE", provider().replay_info().await);
+    analyzer::send_analyzer_cmd(AnalyzerCmd::Publish);
 
     loop {
         tokio::select! {

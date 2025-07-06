@@ -1,5 +1,5 @@
-use crate::momentum_indicators::{macd, rsi};
-use crate::overlap_studies::sma;
+use crate::momentum::{macd, rsi};
+use crate::overlap::sma;
 
 #[test]
 fn test_sma() {

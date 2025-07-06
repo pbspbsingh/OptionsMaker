@@ -98,11 +98,9 @@ export default function Ticker() {
                     onUpdate={newOrder => { if (validOrder(newOrder, lastPrice)) setWipOrder(newOrder) }}
                 />}
             <section className="grid all-charts">
-                {Object.entries(symbol.charts).map(([frame, data]) => (
-                    <Chart key={`${symbol.symbol}_${frame}`}
-                        prices={data.prices}
-                        divergences={data.divergences}
-                        priceLevels={symbol.price_levels}
+                {symbol.charts.map((chart) => (
+                    <Chart key={`${symbol.symbol}_${chart.timeframe}`}
+                        chart={chart}
                         isOrderSubmitted={false}
                         limits={wipOrder != null ? {
                             "TP": wipOrder.targetProfit,

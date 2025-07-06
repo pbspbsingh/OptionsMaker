@@ -52,13 +52,11 @@ impl DataProvider for ReplayProvider {
             info!("Will replay data after last working day");
             split_by_last_work_day(candles)
         };
-        if !second_batch.is_empty() {
-            log_candles(format!("Replay for {symbol}"), &second_batch);
-            self.replay_data
-                .lock()
-                .await
-                .insert(symbol.to_owned(), second_batch);
-        }
+        log_candles(format!("Replay for {symbol}"), &second_batch);
+        self.replay_data
+            .lock()
+            .await
+            .insert(symbol.to_owned(), second_batch);
         Ok((first_batch, Vec::new()))
     }
 

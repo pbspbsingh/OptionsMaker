@@ -1,5 +1,6 @@
 use chrono::NaiveDateTime;
 use schwab_client::Candle;
+use serde_json::{Map, Value};
 use std::collections::HashMap;
 use std::fmt::Display;
 use std::fmt::Write;
@@ -64,11 +65,35 @@ impl DataFrame {
         &self.index
     }
 
-    fn column_names(&self) -> Vec<String> {
+    pub fn column_names(&self) -> Vec<String> {
         ["index".to_owned()]
             .into_iter()
             .chain(self.col_names.iter().cloned())
             .collect()
+    }
+
+    pub fn json(&self) -> Value {
+        let mut rows = Vec::with_capacity(self.index.len());
+        for i in 0..self.index.len() {
+            let mut row = Map::with_capacity(self.col_names.len() + 1);
+            row.insert(
+                "time".to_owned(),
+                Value::from(self.index[i].and_utc().timestamp()),
+            );
+            for col in &self.col_names {
+                let v = self.columns[col][i];
+                row.insert(
+                    col.to_owned(),
+                    if v.is_nan() {
+                        Value::Null
+                    } else {
+                        Value::from(v)
+                    },
+                );
+            }
+            rows.push(Value::Object(row.into()));
+        }
+        Value::Array(rows)
     }
 
     fn column_widths(&self) -> Vec<usize> {

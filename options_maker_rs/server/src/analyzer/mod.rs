@@ -8,11 +8,25 @@ use chrono::Duration;
 use data_provider::provider;
 use schwab_client::Instrument;
 use std::collections::HashMap;
+use std::sync::OnceLock;
+use tokio::sync::mpsc;
 use tracing::{debug, info};
 
 const TF_MULTIPLIER: u64 = 400;
 
+static CMD_SENDER: OnceLock<mpsc::UnboundedSender<AnalyzerCmd>> = OnceLock::new();
+
+pub enum AnalyzerCmd {
+    Publish,
+    ReInitialize(Controller),
+}
+
 pub async fn start_analysis() -> anyhow::Result<()> {
+    let (sender, mut receiver) = mpsc::unbounded_channel::<AnalyzerCmd>();
+    CMD_SENDER
+        .set(sender)
+        .expect("Failed to initialize Analyzer Commander");
+
     let instruments = persist::ticker::fetch_instruments().await?;
     info!("Starting analysis of {} symbols", instruments.len());
 
@@ -23,6 +37,26 @@ pub async fn start_analysis() -> anyhow::Result<()> {
         controllers.insert(ins.symbol, controller);
     }
 
+    tokio::spawn(async move {
+        loop {
+            tokio::select! {
+                Some(cmd) = receiver.recv() => {
+                    match cmd {
+                        AnalyzerCmd::Publish => {
+                            for controller in controllers.values() {
+                                controller.publish();
+                            }
+                        }
+                        AnalyzerCmd::ReInitialize(controller) => {
+                            let symbol = controller.symbol();
+                            info!("Resetting the controller of {symbol}");
+                            controllers.insert(symbol.to_owned(), controller);
+                        }
+                    }
+                }
+            }
+        }
+    });
     Ok(())
 }
 
@@ -48,4 +82,10 @@ pub async fn init_controller(instrument: &Instrument) -> anyhow::Result<Controll
         controller.on_new_candle(candle, false);
     }
     Ok(controller)
+}
+
+pub fn send_analyzer_cmd(cmd: AnalyzerCmd) {
+    if let Some(sender) = CMD_SENDER.get() {
+        sender.send(cmd).ok();
+    }
 }

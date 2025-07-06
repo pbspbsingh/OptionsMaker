@@ -8,23 +8,21 @@ import {
     HistogramSeries,
     CrosshairMode,
 } from "lightweight-charts";
-import type { Divergence, Price, PriceLevel } from "../State";
 import { useEffect, useRef } from "react";
 import { priceToVol } from "../utils";
 
+import type { Chart } from "../State";
 import { useDivergences, useMA, useRsiLine } from "./chartComponents";
 import { useStopLimits, type StopLimits } from "./stopLimits";
 
 export interface ChartProps {
-    prices: Price[],
-    divergences?: Divergence[],
-    priceLevels?: PriceLevel[],
+    chart: Chart,
     limits: StopLimits,
     onLimitUpdate: (name: string, price: number) => boolean,
     isOrderSubmitted: boolean,
 }
 
-export default function Chart({ prices, divergences, limits, isOrderSubmitted, onLimitUpdate }: ChartProps) {
+export default function Chart({ chart, limits, isOrderSubmitted, onLimitUpdate }: ChartProps) {
     const divRef = useRef<HTMLDivElement>(null);
     const chartRef = useRef<IChartApi>(null);
     const candlesRef = useRef<ISeriesApi<"Candlestick">>(null);
@@ -33,7 +31,7 @@ export default function Chart({ prices, divergences, limits, isOrderSubmitted, o
     useEffect(() => {
         if (divRef.current == null) return;
 
-        console.debug('Initializing chart with', prices.length, divergences?.length);
+        console.debug('Initializing chart with', chart.prices.length, chart.divergences?.length);
         chartRef.current = createChart(divRef.current, CHART_OPTIONS);;
         candlesRef.current = chartRef.current.addSeries(CandlestickSeries);
         candlesRef.current.applyOptions({
@@ -62,12 +60,13 @@ export default function Chart({ prices, divergences, limits, isOrderSubmitted, o
     }, [divRef]);
 
     useEffect(() => {
-        const chart = chartRef.current;
+        const { prices } = chart;
+        const chartDiv = chartRef.current;
         const candles = candlesRef.current;
         const volumes = volumeBarsRef.current;
-        if (chart == null || candles == null || volumes == null) return;
+        if (chartDiv == null || candles == null || volumes == null) return;
 
-        if (Math.abs(candles.data().length - prices.length) > 1) {
+        if (Math.abs(candles.data().length - chart.prices.length) > 1) {
             candles.setData(prices);
             volumes.setData(prices.map(priceToVol));
         } else if (prices.length > 0) {
@@ -75,11 +74,11 @@ export default function Chart({ prices, divergences, limits, isOrderSubmitted, o
             candles.update(last);
             volumes.update(priceToVol(last));
         }
-    }, [chartRef, prices]);
+    }, [chartRef, chart.prices]);
 
-    useMA(chartRef, prices);
-    useRsiLine(chartRef, prices);
-    useDivergences(chartRef, divergences ?? []);
+    useMA(chartRef, chart.prices);
+    useRsiLine(chartRef, chart.prices, chart.rsiBracket);
+    useDivergences(chartRef, chart.divergences ?? []);
     useStopLimits(chartRef, candlesRef, limits, isOrderSubmitted, onLimitUpdate);
 
     return <div ref={divRef} />;

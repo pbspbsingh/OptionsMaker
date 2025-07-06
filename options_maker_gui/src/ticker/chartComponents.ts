@@ -13,8 +13,9 @@ import type {
 import { priceToMa, priceToRsi } from "../utils";
 import { deepEqual } from "../compare";
 
-export function useRsiLine(chartRef: React.RefObject<IChartApi | null>, prices: Price[]) {
+export function useRsiLine(chartRef: React.RefObject<IChartApi | null>, prices: Price[], rsiBracket?: number[]) {
     const rsiLineRef = useRef<ISeriesApi<"Line">>(null);
+    const rsiBracketsLinesRef = useRef<{ lines: IPriceLine[], data: number[] }>({ lines: [], data: [] });
 
     useEffect(() => {
         const chart = chartRef.current;
@@ -30,23 +31,14 @@ export function useRsiLine(chartRef: React.RefObject<IChartApi | null>, prices: 
                 },
                 1,
             );
-            rsiLineRef.current.createPriceLine({
-                price: 70,
-                lineWidth: 1,
-                axisLabelVisible: false,
-                lineStyle: 4,
-            });
-            rsiLineRef.current.createPriceLine({
-                price: 30,
-                lineWidth: 1,
-                axisLabelVisible: false,
-                lineStyle: 4,
-            });
-            chart.panes()[1].setHeight(150);
-
             rsiLineRef.current.setData(prices.map(priceToRsi))
+            chart.panes()[1].setHeight(150);
         }
-        return () => { rsiLineRef.current = null; };
+        return () => {
+            rsiBracketsLinesRef.current.lines.forEach(line => rsiLineRef.current?.removePriceLine(line));
+            rsiBracketsLinesRef.current = { lines: [], data: [] };
+            rsiLineRef.current = null;
+        };
     }, [chartRef]);
 
     useEffect(() => {
@@ -63,6 +55,24 @@ export function useRsiLine(chartRef: React.RefObject<IChartApi | null>, prices: 
             }
         }
     }, [rsiLineRef, prices]);
+
+    useEffect(() => {
+        const rsiLine = rsiLineRef.current;
+        if (rsiLine == null) return;
+
+        const { lines: prevLines, data: prevData } = rsiBracketsLinesRef.current;
+        if (!deepEqual(rsiBracket, prevData)) {
+            prevLines.forEach(l => rsiLine.removePriceLine(l));
+
+            const newLines = rsiBracket?.map(price => rsiLine.createPriceLine({
+                price,
+                lineWidth: 1,
+                axisLabelVisible: false,
+                lineStyle: 4,
+            }));
+            rsiBracketsLinesRef.current = { lines: newLines ?? [], data: rsiBracket ?? [] };
+        }
+    }, [rsiLineRef, rsiBracket])
 }
 
 export function useMA(chartRef: React.RefObject<IChartApi | null>, prices: Price[]) {

@@ -1,7 +1,8 @@
-pub mod momentum_indicators;
-pub mod overlap_studies;
+pub mod momentum;
+pub mod overlap;
 pub mod ta;
-pub mod volume_indicators;
+pub mod volatility;
+pub mod volume;
 
 #[cfg(test)]
 mod test;
