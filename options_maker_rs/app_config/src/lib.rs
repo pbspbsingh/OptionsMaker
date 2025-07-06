@@ -1,47 +1,20 @@
-use std::error::Error;
+use serde::de::Error;
+use serde::{Deserialize, Deserializer};
 use std::sync::LazyLock;
 use std::time::Duration;
 
 pub static APP_CONFIG: LazyLock<AppConfig> = LazyLock::new(|| {
-    let rust_log = var("RUST_LOG");
-    let openssl_cert_file = var("OPENSSL_CERT_FILE");
-    let openssl_key_file = var("OPENSSL_KEY_FILE");
-    let token_file = var("TOKEN_FILE");
-    let schwab_client_id = var("SCHWAB_CLIENT_ID");
-    let schwab_client_secret = var("SCHWAB_CLIENT_SECRET");
-    let schwab_callback_url = var("SCHWAB_CALLBACK_URL");
-    let db_url = var("DATABASE_URL");
-    let http_port = var("HTTP_PORT")
-        .parse::<u16>()
-        .unwrap_or_else(|e| panic!("Failed to parse HTTP_PORT: {e}"));
-    let mut timeframes = var("TIME_FRAMES")
-        .split(',')
-        .map(str::trim)
-        .map(|s| parse_duration(s).unwrap())
-        .collect::<Vec<_>>();
-    timeframes.sort();
-    let replay_mode = var_opt("REPLAY_MODE")
-        .and_then(|s| s.parse::<bool>().ok())
-        .unwrap_or_default();
-    let replay_start_time = var_opt("REPLAY_START_TIME");
-
-    AppConfig {
-        rust_log,
-        openssl_cert_file,
-        openssl_key_file,
-        token_file,
-        schwab_client_id,
-        schwab_client_secret,
-        schwab_callback_url,
-        db_url,
-        http_port,
-        timeframes,
-        replay_mode,
-        replay_start_time,
-    }
+    let config_file = std::env::args()
+        .skip(1)
+        .next()
+        .unwrap_or_else(|| String::from("config.toml"));
+    let config = std::fs::read_to_string(&config_file)
+        .unwrap_or_else(|_| panic!("Failed to read config file {config_file:?}"));
+    toml::from_str(&config)
+        .unwrap_or_else(|e| panic!("Failed to parse as AppConfig toml: {e}\n{config}"))
 });
 
-#[derive(Debug)]
+#[derive(Debug, Deserialize)]
 pub struct AppConfig {
     pub rust_log: String,
     pub openssl_cert_file: String,
@@ -52,22 +25,26 @@ pub struct AppConfig {
     pub schwab_callback_url: String,
     pub db_url: String,
     pub http_port: u16,
-    pub replay_mode: bool,
+    pub asset_dir: Option<String>,
+    #[serde(deserialize_with = "parse_timeframes")]
     pub timeframes: Vec<Duration>,
+    pub replay_mode: bool,
     pub replay_start_time: Option<String>,
 }
 
-fn var(key: impl AsRef<str>) -> String {
-    let key = key.as_ref();
-    dotenvy::var(key).unwrap_or_else(|_| panic!("Env variable {key:?} is not set"))
+fn parse_timeframes<'de, D: Deserializer<'de>>(deserializer: D) -> Result<Vec<Duration>, D::Error> {
+    let duration_str: String = Deserialize::deserialize(deserializer)?;
+    duration_str
+        .split(',')
+        .map(str::trim)
+        .filter(|s| !s.is_empty())
+        .map(|s| {
+            parse_duration(s).map_err(|_| Error::custom(format!("Failed to parse duration {s}")))
+        })
+        .collect()
 }
 
-fn var_opt(key: impl AsRef<str>) -> Option<String> {
-    let key = key.as_ref();
-    dotenvy::var(key).ok()
-}
-
-fn parse_duration(input: &str) -> Result<Duration, Box<dyn Error>> {
+fn parse_duration(input: &str) -> Result<Duration, Box<dyn std::error::Error>> {
     let input = input.to_lowercase();
     if input.ends_with("m") && !input.ends_with("min") {
         // Handle "1M" format (minutes)

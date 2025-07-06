@@ -7,8 +7,10 @@ use anyhow::Context;
 use app_config::APP_CONFIG;
 use axum::Router;
 use std::net::Ipv4Addr;
+use std::path::Path;
 use time::macros::format_description;
 use tokio::net::TcpListener;
+use tower_http::services::{ServeDir, ServeFile};
 use tracing::info;
 use tracing_subscriber::EnvFilter;
 use tracing_subscriber::fmt::time::LocalTime;
@@ -40,15 +42,25 @@ async fn main() -> anyhow::Result<()> {
     let tcp_listener = TcpListener::bind((Ipv4Addr::UNSPECIFIED, http_port))
         .await
         .with_context(|| format!("Couldn't bind to {http_port}"))?;
-
     let api_routers = Router::new()
         .nest("/ticker", ticker::router())
         .merge(websocket::router());
-    let router = Router::new().nest("/api", api_routers);
-
+    let mut router = Router::new().nest("/api", api_routers);
+    if let Some(asset_dir) = &APP_CONFIG.asset_dir
+        && tokio::fs::try_exists(asset_dir).await?
+        && tokio::fs::metadata(asset_dir).await?.is_dir()
+    {
+        info!(
+            "Using asset dir: {:?}",
+            Path::new(asset_dir).canonicalize()?
+        );
+        router = router.fallback_service(
+            ServeDir::new(asset_dir)
+                .not_found_service(ServeFile::new(format!("{asset_dir}/index.html"))),
+        );
+    }
     axum::serve(tcp_listener, router)
         .await
         .context("server failed to start")?;
-
     Ok(())
 }

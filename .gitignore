@@ -18,3 +18,4 @@ options_maker_rs/key.pem
 options_maker_rs/cert.pem
 *.sqlite*
 
+config.toml
