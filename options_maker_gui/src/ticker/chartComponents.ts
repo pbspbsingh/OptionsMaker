@@ -35,7 +35,7 @@ export function useRsiLine(chartRef: React.RefObject<IChartApi | null>, prices: 
             chart.panes()[1].setHeight(150);
         }
         return () => {
-            rsiBracketsLinesRef.current.lines.forEach(line => rsiLineRef.current?.removePriceLine(line));
+            // rsiBracketsLinesRef.current.lines.forEach(line => rsiLineRef.current?.removePriceLine(line));
             rsiBracketsLinesRef.current = { lines: [], data: [] };
             rsiLineRef.current = null;
         };

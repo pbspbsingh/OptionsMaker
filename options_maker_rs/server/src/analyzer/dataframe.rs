@@ -74,7 +74,7 @@ impl DataFrame {
 
     pub fn json(&self) -> Value {
         let mut rows = Vec::with_capacity(self.index.len());
-        for i in 0..self.index.len() {
+        for i in 0..self.index().len() {
             let mut row = Map::with_capacity(self.col_names.len() + 1);
             row.insert(
                 "time".to_owned(),

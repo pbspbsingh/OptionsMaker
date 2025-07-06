@@ -9,17 +9,19 @@ use async_trait::async_trait;
 use chrono::{DateTime, Local};
 use schwab_client::{Candle, Instrument};
 
+use schwab_client::streaming_client::StreamResponse;
 use serde::{Deserialize, Serialize};
 use std::sync::OnceLock;
+use tokio::sync::broadcast;
 use tracing::info;
 
 static PROVIDER: OnceLock<Box<dyn DataProvider + Send + Sync>> = OnceLock::new();
 
-#[derive(Clone, Serialize, Deserialize)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct ReplayInfo {
     playing: bool,
+    speed: u64,
     symbol: String,
-    speed: u32,
 }
 
 #[async_trait]
@@ -31,7 +33,13 @@ pub trait DataProvider {
         start: DateTime<Local>,
     ) -> anyhow::Result<(Vec<Candle>, Vec<Candle>)>;
 
-    async fn replay_info(&self) -> Option<ReplayInfo> {
+    fn listener(&self) -> broadcast::Receiver<StreamResponse>;
+
+    fn sub_charts(&self, _symbols: Vec<String>) {}
+
+    fn unsub_charts(&self, _symbols: Vec<String>) {}
+
+    async fn replay_info(&self, _update: Option<ReplayInfo>) -> Option<ReplayInfo> {
         None
     }
 }

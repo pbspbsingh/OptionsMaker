@@ -15,7 +15,7 @@ use tracing::debug;
 static WS_ID: AtomicUsize = AtomicUsize::new(1);
 
 static WS_CHANNEL: LazyLock<(broadcast::Sender<Message>, broadcast::Receiver<Message>)> =
-    LazyLock::new(|| broadcast::channel(2));
+    LazyLock::new(|| broadcast::channel(16));
 
 pub fn router() -> Router {
     async fn _handle_websocket(socket: WebSocket) {
@@ -49,11 +49,13 @@ async fn handle_websocket(socket: WebSocket) -> anyhow::Result<()> {
         ))
         .await?;
 
+    // Initial data for websocket client
+    tokio::spawn(async move {
+        publish("REPLAY_MODE", provider().replay_info(None).await);
+        analyzer::send_analyzer_cmd(AnalyzerCmd::Publish);
+    });
+
     let mut receiver = WS_CHANNEL.1.resubscribe();
-
-    publish("REPLAY_MODE", provider().replay_info().await);
-    analyzer::send_analyzer_cmd(AnalyzerCmd::Publish);
-
     loop {
         tokio::select! {
             Ok(message) = receiver.recv() => {

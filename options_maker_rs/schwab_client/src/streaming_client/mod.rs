@@ -9,15 +9,15 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::Duration;
 use streamer::Streamer;
 
-use tokio::sync::RwLock;
+use tokio::sync::{RwLock, broadcast, mpsc};
 use tokio_tungstenite::tungstenite::Message;
 use tracing::{debug, info, warn};
 
 mod streamer;
 
 pub struct StreamingClient {
-    cmd_sender: tokio::sync::mpsc::UnboundedSender<StreamCommand>,
-    response_receiver: tokio::sync::broadcast::Receiver<StreamResponse>,
+    cmd_sender: mpsc::UnboundedSender<StreamCommand>,
+    response_receiver: broadcast::Receiver<StreamResponse>,
     is_alive: Arc<AtomicBool>,
 }
 
@@ -78,7 +78,7 @@ impl StreamingClient {
         self.cmd_sender.send(command).ok();
     }
 
-    pub fn receiver(&self) -> tokio::sync::broadcast::Receiver<StreamResponse> {
+    pub fn receiver(&self) -> broadcast::Receiver<StreamResponse> {
         self.response_receiver.resubscribe()
     }
 
@@ -87,13 +87,11 @@ impl StreamingClient {
         streaming_client_alive: Arc<AtomicBool>,
         main_client_alive: Arc<AtomicBool>,
     ) -> SchwabResult<(
-        tokio::sync::mpsc::UnboundedSender<StreamCommand>,
-        tokio::sync::broadcast::Receiver<StreamResponse>,
+        mpsc::UnboundedSender<StreamCommand>,
+        broadcast::Receiver<StreamResponse>,
     )> {
-        let (cmd_sender, mut cmd_receiver) =
-            tokio::sync::mpsc::unbounded_channel::<StreamCommand>();
-        let (response_sender, response_receiver) =
-            tokio::sync::broadcast::channel::<StreamResponse>(4);
+        let (cmd_sender, mut cmd_receiver) = mpsc::unbounded_channel::<StreamCommand>();
+        let (response_sender, response_receiver) = broadcast::channel::<StreamResponse>(16);
 
         let (mut config, mut ws_stream) = Streamer::connect(access_token.clone()).await?;
 

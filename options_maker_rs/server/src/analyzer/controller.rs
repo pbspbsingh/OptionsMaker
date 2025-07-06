@@ -3,7 +3,6 @@ use crate::websocket;
 use app_config::APP_CONFIG;
 use schwab_client::Candle;
 use serde_json::json;
-use std::time::Instant;
 
 pub struct Controller {
     symbol: String,
@@ -43,7 +42,6 @@ impl Controller {
     }
 
     pub fn publish(&self) {
-        let start = Instant::now();
         let last_updated = self.candles.last().map(|c| c.time.timestamp());
         let atr = self.charts.last().map(Chart::atr);
         let charts = self.charts.iter().map(Chart::json).collect::<Vec<_>>();
@@ -55,6 +53,5 @@ impl Controller {
             "charts": charts,
         });
         websocket::publish("UPDATE_CHART", data);
-        println!("Serialization time: {:?}", start.elapsed());
     }
 }

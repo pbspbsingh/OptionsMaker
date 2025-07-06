@@ -1,22 +1,24 @@
 use crate::DataProvider;
 use crate::time_helper::split_by_last_work_day;
+
 use app_config::APP_CONFIG;
 use async_trait::async_trait;
 use chrono::{DateTime, Duration, Local};
 use schwab_client::schwab_client::{Frequency, SchwabClient, SearchProjection};
-use schwab_client::streaming_client::StreamingClient;
+use schwab_client::streaming_client::{StreamResponse, StreamingClient, Subscription};
 use schwab_client::{Candle, Instrument};
+use tokio::sync::broadcast::Receiver;
 use tracing::{debug, info};
 
 pub struct SchwabProvider {
     client: SchwabClient,
-    streaming_client: tokio::sync::OnceCell<StreamingClient>,
+    streaming_client: StreamingClient,
 }
 
 impl SchwabProvider {
     pub async fn init() -> anyhow::Result<Self> {
         let client = SchwabClient::init().await?;
-        let streaming_client = tokio::sync::OnceCell::new();
+        let streaming_client = client.create_streaming_client().await?;
         Ok(Self {
             client,
             streaming_client,
@@ -70,6 +72,24 @@ impl DataProvider for SchwabProvider {
         log_candles("Loaded", &candles);
 
         Ok(split_by_last_work_day(candles))
+    }
+
+    fn listener(&self) -> Receiver<StreamResponse> {
+        self.streaming_client.receiver()
+    }
+
+    fn sub_charts(&self, symbols: Vec<String>) {
+        if !symbols.is_empty() {
+            self.streaming_client
+                .subscribe(Subscription::EquityChart, symbols);
+        }
+    }
+
+    fn unsub_charts(&self, symbols: Vec<String>) {
+        if !symbols.is_empty() {
+            self.streaming_client
+                .unsubscribe(Subscription::EquityChart, symbols);
+        }
     }
 }
 

@@ -5,12 +5,12 @@
         padding: 1rem;
         margin-bottom: 1rem;
         display: flex;
-        justify-content: space-between;
         align-items: center;
         box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.2);
 
         &>* {
             margin: 0;
+            padding: 0;
         }
 
         .quote {
@@ -24,6 +24,13 @@
             margin-left: auto;
             display: flex;
             gap: 1rem;
+            align-items: center;
+            white-space: nowrap;
+
+            input[type=range] {
+                margin: 0;
+                padding: 0;
+            }
         }
     }
 

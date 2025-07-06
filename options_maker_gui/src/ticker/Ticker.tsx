@@ -12,11 +12,12 @@ import OrderForm, { type Order } from "./OrderForm";
 import { useLastPrice } from "../utils";
 
 import './Ticker.scss';
+import { Replay } from "./Replay";
 
 export default function Ticker() {
     const { ticker = "JUNK" } = useParams();
 
-    const { symbols, quotes } = useContext(AppStateContext);
+    const { symbols, quotes, replay_mode } = useContext(AppStateContext);
     const [optionsLoading, setOptionsLoading] = useState(false);
     const { enqueueSnackbar: showSnackbar, closeSnackbar } = useSnackbar();
     const [options, setOptions] = useState<Options | null>(null);
@@ -82,6 +83,7 @@ export default function Ticker() {
                 <section className="quick-actions">
                     <button className="outline" disabled>Flatten</button>
                     <button disabled={optionsLoading} onClick={onLoadOptions}>Load options</button>
+                    {replay_mode != null && <Replay ticker={ticker} />}
                 </section>
             </header>
             {options != null &&

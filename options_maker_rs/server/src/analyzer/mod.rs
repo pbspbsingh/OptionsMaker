@@ -6,11 +6,12 @@ use crate::analyzer::controller::Controller;
 use app_config::APP_CONFIG;
 use chrono::Duration;
 use data_provider::provider;
-use schwab_client::Instrument;
+use schwab_client::streaming_client::StreamResponse;
+use schwab_client::{Candle, Instrument};
 use std::collections::HashMap;
 use std::sync::OnceLock;
 use tokio::sync::mpsc;
-use tracing::{debug, info};
+use tracing::{debug, info, warn};
 
 const TF_MULTIPLIER: u64 = 400;
 
@@ -22,10 +23,24 @@ pub enum AnalyzerCmd {
 }
 
 pub async fn start_analysis() -> anyhow::Result<()> {
-    let (sender, mut receiver) = mpsc::unbounded_channel::<AnalyzerCmd>();
+    let (sender, mut cmd_recv) = mpsc::unbounded_channel::<AnalyzerCmd>();
     CMD_SENDER
         .set(sender)
         .expect("Failed to initialize Analyzer Commander");
+
+    // Create a local unbounded channel to avoid dropping stream response
+    // when stream response overwhelms the consumption, especially with level one data
+    let mut stream_receiver = provider().listener();
+    let (chart_sender, mut chart_recv) = mpsc::unbounded_channel::<(String, Candle)>();
+    tokio::spawn(async move {
+        while let Ok(response) = stream_receiver.recv().await {
+            if let StreamResponse::Equity { symbol, candle } = response {
+                chart_sender
+                    .send((symbol, candle))
+                    .expect("Error passing on chart candle");
+            }
+        }
+    });
 
     let instruments = persist::ticker::fetch_instruments().await?;
     info!("Starting analysis of {} symbols", instruments.len());
@@ -36,11 +51,12 @@ pub async fn start_analysis() -> anyhow::Result<()> {
         let controller = init_controller(&ins).await?;
         controllers.insert(ins.symbol, controller);
     }
+    provider().sub_charts(controllers.keys().cloned().collect());
 
     tokio::spawn(async move {
         loop {
             tokio::select! {
-                Some(cmd) = receiver.recv() => {
+                Some(cmd) = cmd_recv.recv() => {
                     match cmd {
                         AnalyzerCmd::Publish => {
                             for controller in controllers.values() {
@@ -48,10 +64,19 @@ pub async fn start_analysis() -> anyhow::Result<()> {
                             }
                         }
                         AnalyzerCmd::ReInitialize(controller) => {
-                            let symbol = controller.symbol();
+                            let symbol = controller.symbol().to_owned();
                             info!("Resetting the controller of {symbol}");
+                            controller.publish();
                             controllers.insert(symbol.to_owned(), controller);
+                            provider().sub_charts(vec![symbol]);
                         }
+                    }
+                }
+                Some((symbol, candle)) = chart_recv.recv() => {
+                    if let Some(controller) = controllers.get_mut(&symbol) {
+                        controller.on_new_candle(candle, true);
+                    } else {
+                        warn!("Unexpected chart candle received for {symbol}");
                     }
                 }
             }
