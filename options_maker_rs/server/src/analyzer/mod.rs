@@ -13,13 +13,12 @@ use std::sync::OnceLock;
 use tokio::sync::mpsc;
 use tracing::{debug, info, warn};
 
-const TF_MULTIPLIER: u64 = 400;
-
 static CMD_SENDER: OnceLock<mpsc::UnboundedSender<AnalyzerCmd>> = OnceLock::new();
 
 pub enum AnalyzerCmd {
     Publish,
     ReInitialize(Controller),
+    Remove(String),
 }
 
 pub async fn start_analysis() -> anyhow::Result<()> {
@@ -56,6 +55,13 @@ pub async fn start_analysis() -> anyhow::Result<()> {
     tokio::spawn(async move {
         loop {
             tokio::select! {
+                Some((symbol, candle)) = chart_recv.recv() => {
+                    if let Some(controller) = controllers.get_mut(&symbol) {
+                        controller.on_new_candle(candle, true);
+                    } else {
+                        warn!("Unexpected chart candle received for {symbol}");
+                    }
+                }
                 Some(cmd) = cmd_recv.recv() => {
                     match cmd {
                         AnalyzerCmd::Publish => {
@@ -63,20 +69,22 @@ pub async fn start_analysis() -> anyhow::Result<()> {
                                 controller.publish();
                             }
                         }
-                        AnalyzerCmd::ReInitialize(controller) => {
-                            let symbol = controller.symbol().to_owned();
+                        AnalyzerCmd::ReInitialize(ctr) => {
+                            let symbol = ctr.symbol().to_owned();
                             info!("Resetting the controller of {symbol}");
-                            controller.publish();
-                            controllers.insert(symbol.to_owned(), controller);
+                            ctr.publish();
+                            controllers.insert(symbol.to_owned(), ctr);
                             provider().sub_charts(vec![symbol]);
                         }
-                    }
-                }
-                Some((symbol, candle)) = chart_recv.recv() => {
-                    if let Some(controller) = controllers.get_mut(&symbol) {
-                        controller.on_new_candle(candle, true);
-                    } else {
-                        warn!("Unexpected chart candle received for {symbol}");
+                        AnalyzerCmd::Remove(symbol) => {
+                            if let Some(ctr) = controllers.remove(&symbol) {
+                                info!("Removing controller for {symbol}");
+                                ctr.unpublish();
+                                provider().sub_charts(vec![symbol]);
+                            } else {
+                                warn!("Can't remove {symbol}, it's already not present");
+                            }
+                        }
                     }
                 }
             }
@@ -90,7 +98,8 @@ pub async fn init_controller(instrument: &Instrument) -> anyhow::Result<Controll
         .timeframes
         .last()
         .expect("No timeframes provided");
-    let days = Duration::seconds((TF_MULTIPLIER * major_tf.as_secs()) as i64).num_days();
+    let days =
+        Duration::seconds((APP_CONFIG.timeframe_multiplier * major_tf.as_secs()) as i64).num_days();
     let start = util::time::days_ago(days);
     let (base_candles, process) = provider()
         .fetch_price_history(&instrument.symbol, start)

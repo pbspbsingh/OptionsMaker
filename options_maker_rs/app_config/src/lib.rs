@@ -28,6 +28,7 @@ pub struct AppConfig {
     pub asset_dir: Option<String>,
     #[serde(deserialize_with = "parse_timeframes")]
     pub timeframes: Vec<Duration>,
+    pub timeframe_multiplier: u64,
     pub replay_mode: bool,
     pub replay_start_time: Option<String>,
 }

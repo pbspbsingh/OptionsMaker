@@ -3,7 +3,7 @@ use crate::analyzer::AnalyzerCmd;
 use crate::app_error::{AppError, AppResult};
 use app_config::APP_CONFIG;
 use axum::extract::Query;
-use axum::routing::{get, post, put};
+use axum::routing::{delete, get, post, put};
 use axum::{Json, Router};
 use data_provider::{ReplayInfo, provider};
 use std::collections::HashMap;
@@ -12,14 +12,13 @@ use tracing::{debug, info};
 pub fn router() -> Router {
     Router::new()
         .route("/add", put(add_new_ticker))
+        .route("/remove", delete(remove_ticker))
         .route("/replay_info", post(update_replay_info))
         .route("/reload", get(reload_ticker))
 }
 
 async fn add_new_ticker(Query(symbols): Query<HashMap<String, String>>) -> AppResult<()> {
-    let symbol = symbols
-        .get("ticker")
-        .ok_or_else(|| format!("No ticker found in {symbols:?}"))?;
+    let symbol = get_ticker(symbols)?;
     info!("Trying to add a new ticker: {symbol:?}");
     let instrument = provider().search_symbol(&symbol.to_uppercase()).await?;
     debug!("Fetched instrument {instrument:?}");
@@ -29,6 +28,25 @@ async fn add_new_ticker(Query(symbols): Query<HashMap<String, String>>) -> AppRe
     analyzer::send_analyzer_cmd(AnalyzerCmd::ReInitialize(controller));
 
     Ok(())
+}
+
+async fn remove_ticker(Query(symbols): Query<HashMap<String, String>>) -> AppResult<()> {
+    if APP_CONFIG.replay_mode {
+        return Err(AppError::GenericError(
+            "Can't remove ticker in replay mode".to_owned(),
+        ));
+    }
+
+    let symbol = get_ticker(symbols)?;
+    info!("Trying to remove ticker: {symbol:?}");
+    if persist::ticker::delete_instrument(&symbol).await? {
+        analyzer::send_analyzer_cmd(AnalyzerCmd::Remove(symbol));
+        Ok(())
+    } else {
+        Err(AppError::GenericError(
+            "Couldn't remove ticker {symbol}".to_string(),
+        ))
+    }
 }
 
 async fn update_replay_info(Json(replay): Json<ReplayInfo>) -> AppResult<()> {
@@ -43,12 +61,10 @@ async fn reload_ticker(Query(symbols): Query<HashMap<String, String>>) -> AppRes
         ));
     }
 
-    let symbol = symbols
-        .get("ticker")
-        .ok_or_else(|| format!("No ticker found in {symbols:?}"))?;
+    let symbol = get_ticker(symbols)?;
     info!("Reloading ticker: {symbol}");
     let instruments = persist::ticker::fetch_instruments().await?;
-    let Some(my_ins) = instruments.into_iter().find(|ins| symbol == &ins.symbol) else {
+    let Some(my_ins) = instruments.into_iter().find(|ins| symbol == ins.symbol) else {
         return Err(AppError::GenericError(format!(
             "No instrument found for {symbol:?}"
         )));
@@ -58,4 +74,11 @@ async fn reload_ticker(Query(symbols): Query<HashMap<String, String>>) -> AppRes
     analyzer::send_analyzer_cmd(AnalyzerCmd::ReInitialize(controller));
 
     Ok(())
+}
+
+fn get_ticker(mut symbols: HashMap<String, String>) -> Result<String, AppError> {
+    let symbol = symbols
+        .remove("ticker")
+        .ok_or_else(|| format!("No ticker found in {symbols:?}"))?;
+    Ok(symbol)
 }

@@ -16,7 +16,7 @@ export type AppAction = {
     data: Symbol,
 } | {
     action: "UNSUBSCRIBE_CHART",
-    symbol: string,
+    data: string,
 } | {
     action: "UPDATE_QUOTE",
     quote: Quote,
@@ -141,7 +141,7 @@ export function appReducer(state: AppState, action: AppAction): AppState {
                     ...state.symbols,
                 }
             };
-            delete newStatate.symbols[action.symbol];
+            delete newStatate.symbols[action.data];
             return newStatate;
         }
         case 'UPDATE_QUOTE': {

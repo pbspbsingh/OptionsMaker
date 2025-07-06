@@ -1,0 +1,12 @@
+{
+  "db_name": "SQLite",
+  "query": "DELETE FROM symbols WHERE symbol = $1",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Right": 1
+    },
+    "nullable": []
+  },
+  "hash": "cbcd24704a1e8057071786ed7a2a7ae39ce2c0b492c553312f03a60991a5d627"
+}

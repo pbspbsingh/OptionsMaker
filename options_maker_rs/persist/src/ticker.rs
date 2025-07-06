@@ -48,3 +48,11 @@ pub async fn fetch_instruments() -> sqlx::Result<Vec<Instrument>> {
     .await?;
     Ok(result)
 }
+
+pub async fn delete_instrument(symbol: &str) -> sqlx::Result<bool> {
+    let rows = sqlx::query!("DELETE FROM symbols WHERE symbol = $1", symbol)
+        .execute(super::db())
+        .await?
+        .rows_affected();
+    Ok(rows == 1)
+}
