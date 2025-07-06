@@ -8,7 +8,8 @@ use data_provider::provider;
 use flate2::Compression;
 use flate2::read::DeflateEncoder;
 use futures::{SinkExt, StreamExt};
-use serde_json::json;
+use serde_json::{Value, json};
+use std::io::Read;
 use std::sync::LazyLock;
 use std::sync::atomic::{AtomicUsize, Ordering};
 use tokio::sync::broadcast;
@@ -16,7 +17,7 @@ use tracing::debug;
 
 static WS_ID: AtomicUsize = AtomicUsize::new(1);
 
-static WS_CHANNEL: LazyLock<(broadcast::Sender<Message>, broadcast::Receiver<Message>)> =
+static WS_CHANNEL: LazyLock<(broadcast::Sender<Value>, broadcast::Receiver<Value>)> =
     LazyLock::new(|| broadcast::channel(16));
 
 pub fn router() -> Router {
@@ -60,8 +61,8 @@ async fn handle_websocket(socket: WebSocket) -> anyhow::Result<()> {
     let mut receiver = WS_CHANNEL.1.resubscribe();
     loop {
         tokio::select! {
-            Ok(message) = receiver.recv() => {
-                ws_writer.send(message).await?;
+            Ok(value) = receiver.recv() => {
+                ws_writer.send(to_message(value)).await?;
             }
             Some(Ok(message)) = ws_reader.next() => {
                 if let Message::Close(_) = message {
@@ -78,24 +79,23 @@ pub fn publish(action: impl AsRef<str>, message: impl serde::Serialize) {
         "action": action.as_ref(),
         "data": message,
     });
-    let payload = payload.to_string();
-    let message = if payload.len() >= 500 {
-        if let Ok(bytes) = compress_data(payload.as_bytes()) {
-            Message::binary(bytes)
-        } else {
-            Message::text(payload)
-        }
-    } else {
-        Message::text(payload)
-    };
-    WS_CHANNEL.0.send(message).ok();
+    WS_CHANNEL.0.send(payload).ok();
 }
 
-fn compress_data(data: &[u8]) -> Result<Vec<u8>, std::io::Error> {
-    use std::io::Read;
+fn to_message(value: Value) -> Message {
+    fn compress(data: &[u8]) -> Result<Vec<u8>, std::io::Error> {
+        let mut output = Vec::new();
+        let mut encoder = DeflateEncoder::new(data, Compression::best());
+        encoder.read_to_end(&mut output)?;
+        Ok(output)
+    }
 
-    let mut output = Vec::new();
-    let mut encoder = DeflateEncoder::new(data, Compression::best());
-    encoder.read_to_end(&mut output)?;
-    Ok(output)
+    let payload = value.to_string();
+    if payload.len() >= 500 {
+        compress(payload.as_bytes())
+            .map(Message::binary)
+            .unwrap_or_else(|_| Message::text(payload))
+    } else {
+        Message::text(payload)
+    }
 }
