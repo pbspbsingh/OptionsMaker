@@ -5,6 +5,8 @@ use axum::extract::WebSocketUpgrade;
 use axum::extract::ws::{Message, WebSocket};
 use axum::routing::get;
 use data_provider::provider;
+use flate2::Compression;
+use flate2::read::DeflateEncoder;
 use futures::{SinkExt, StreamExt};
 use serde_json::json;
 use std::sync::LazyLock;
@@ -76,6 +78,24 @@ pub fn publish(action: impl AsRef<str>, message: impl serde::Serialize) {
         "action": action.as_ref(),
         "data": message,
     });
-    let message = Message::text(payload.to_string());
+    let payload = payload.to_string();
+    let message = if payload.len() >= 500 {
+        if let Ok(bytes) = compress_data(payload.as_bytes()) {
+            Message::binary(bytes)
+        } else {
+            Message::text(payload)
+        }
+    } else {
+        Message::text(payload)
+    };
     WS_CHANNEL.0.send(message).ok();
+}
+
+fn compress_data(data: &[u8]) -> Result<Vec<u8>, std::io::Error> {
+    use std::io::Read;
+
+    let mut output = Vec::new();
+    let mut encoder = DeflateEncoder::new(data, Compression::best());
+    encoder.read_to_end(&mut output)?;
+    Ok(output)
 }

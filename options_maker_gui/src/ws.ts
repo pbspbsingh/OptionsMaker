@@ -1,3 +1,5 @@
+const TEXT_DECODER = new TextDecoder();
+
 export default class Websocket {
     private readonly path: string;
     private readonly handler: (data: any) => void;
@@ -28,8 +30,18 @@ export default class Websocket {
             };
             ws.onmessage = (msg) => {
                 try {
-                    const data = msg.data;
-                    this.handler(JSON.parse(data));
+                    const payload = msg.data;
+                    if (typeof payload === 'string') {
+                        this.handler(JSON.parse(payload));
+                    } else {
+                        const compressedStream = payload.stream();
+                        const decompressed = compressedStream.pipeThrough(new DecompressionStream('deflate-raw'));
+                        const response = new Response(decompressed);
+                        response.arrayBuffer()
+                            .then(buff => TEXT_DECODER.decode(buff))
+                            .then(text => this.handler(JSON.parse(text)))
+                            .catch(e => console.warn('Failed to parse ws response', e));
+                    }
                 } catch (e) {
                     console.warn("Failed to process ws message", e);
                     // console.log(msg.data);

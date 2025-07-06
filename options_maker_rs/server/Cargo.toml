@@ -14,6 +14,7 @@ util = { path = "../util" }
 tracing-subscriber = { version = "0", features = ["env-filter", "local-time"] }
 tracing = { workspace = true }
 mimalloc = "0.1"
+flate2 = "1.0"
 
 app_config = { path = "../app_config" }
 schwab_client = { path = "../schwab_client" }

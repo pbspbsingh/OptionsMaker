@@ -2151,6 +2151,7 @@ dependencies = [
  "axum",
  "chrono",
  "data_provider",
+ "flate2",
  "futures",
  "mimalloc",
  "persist",
