@@ -15,13 +15,13 @@ export type AppAction = {
     action: 'UPDATE_CHART',
     data: Symbol,
 } | {
-    action: "UNSUBSCRIBE_CHART",
-    data: string,
+    action: 'UPDATE_SYMBOLS',
+    data: string[],
 } | {
-    action: "UPDATE_QUOTE",
+    action: 'UPDATE_QUOTE',
     quote: Quote,
 } | {
-    action: "REPLAY_MODE",
+    action: 'REPLAY_MODE',
     data: ReplayMode,
 };
 
@@ -134,14 +134,14 @@ export function appReducer(state: AppState, action: AppAction): AppState {
                 }
             };
         }
-        case 'UNSUBSCRIBE_CHART': {
-            const newStatate = {
-                ...state,
-                symbols: {
-                    ...state.symbols,
+        case 'UPDATE_SYMBOLS': {
+            const symbols = new Set(action.data);
+            const newStatate = Object.assign({}, state);
+            for (const sym of Object.keys(state.symbols)) {
+                if (!symbols.has(sym)) {
+                    delete newStatate.symbols[sym];
                 }
-            };
-            delete newStatate.symbols[action.data];
+            }
             return newStatate;
         }
         case 'UPDATE_QUOTE': {

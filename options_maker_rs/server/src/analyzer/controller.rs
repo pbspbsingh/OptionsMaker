@@ -54,8 +54,4 @@ impl Controller {
         });
         websocket::publish("UPDATE_CHART", data);
     }
-
-    pub fn unpublish(self) {
-        websocket::publish("UNSUBSCRIBE_CHART", self.symbol);
-    }
 }

@@ -35,9 +35,9 @@ pub trait DataProvider {
 
     fn listener(&self) -> broadcast::Receiver<StreamResponse>;
 
-    fn sub_charts(&self, _symbols: Vec<String>) {}
+    fn sub_charts(&self, symbols: Vec<String>);
 
-    fn unsub_charts(&self, _symbols: Vec<String>) {}
+    fn unsub_charts(&self, symbols: Vec<String>);
 
     async fn replay_info(&self, _update: Option<ReplayInfo>) -> Option<ReplayInfo> {
         None

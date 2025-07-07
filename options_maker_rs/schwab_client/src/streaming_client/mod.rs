@@ -185,16 +185,20 @@ impl StreamingClient {
                     }
                 }
 
-                let mut wait_time = Duration::from_secs(30);
+                let mut wait_time = Duration::from_secs(15);
                 (config, ws_stream) = loop {
                     if !clients_alive() {
                         break 'main;
                     }
-
                     warn!("Websocket stream terminated, will retry after {wait_time:?}");
                     tokio::time::sleep(wait_time).await;
+                    if cmd_receiver.is_empty() && subs_empty(&subscribed_symbols) {
+                        // There is no need to connect to websocket
+                        continue;
+                    }
+
                     match Streamer::connect(access_token.clone()).await {
-                        Ok(res) => break res,
+                        Ok(conn_result) => break conn_result,
                         Err(e) => {
                             warn!("Error while re-connecting to websocket: {e}");
                             let secs = (1.2 * wait_time.as_secs() as f64) as u64;
@@ -212,4 +216,8 @@ impl Drop for StreamingClient {
     fn drop(&mut self) {
         self.is_alive.store(false, Ordering::Relaxed);
     }
+}
+
+fn subs_empty<K, S>(map: &HashMap<K, HashSet<S>>) -> bool {
+    map.values().map(|v| v.len()).sum::<usize>() == 0
 }

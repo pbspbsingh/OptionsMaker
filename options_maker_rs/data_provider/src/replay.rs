@@ -100,6 +100,10 @@ impl DataProvider for ReplayProvider {
         self.receiver.resubscribe()
     }
 
+    fn sub_charts(&self, _symbols: Vec<String>) {}
+
+    fn unsub_charts(&self, _symbols: Vec<String>) {}
+
     async fn replay_info(&self, update: Option<ReplayInfo>) -> Option<ReplayInfo> {
         let mut replay_info = self.replay_info.lock().await;
         if let Some(update) = update {

@@ -3,6 +3,7 @@ mod controller;
 mod dataframe;
 
 use crate::analyzer::controller::Controller;
+use crate::websocket;
 use app_config::APP_CONFIG;
 use chrono::Duration;
 use data_provider::provider;
@@ -65,6 +66,7 @@ pub async fn start_analysis() -> anyhow::Result<()> {
                 Some(cmd) = cmd_recv.recv() => {
                     match cmd {
                         AnalyzerCmd::Publish => {
+                            websocket::publish("UPDATE_SYMBOLS", controllers.keys().collect::<Vec<_>>());
                             for controller in controllers.values() {
                                 controller.publish();
                             }
@@ -77,13 +79,13 @@ pub async fn start_analysis() -> anyhow::Result<()> {
                             provider().sub_charts(vec![symbol]);
                         }
                         AnalyzerCmd::Remove(symbol) => {
-                            if let Some(ctr) = controllers.remove(&symbol) {
+                            if let Some(_ctr) = controllers.remove(&symbol) {
                                 info!("Removing controller for {symbol}");
-                                ctr.unpublish();
-                                provider().sub_charts(vec![symbol]);
+                                provider().unsub_charts(vec![symbol]);
                             } else {
                                 warn!("Can't remove {symbol}, it's already not present");
                             }
+                            websocket::publish("UPDATE_SYMBOLS", controllers.keys().collect::<Vec<_>>());
                         }
                     }
                 }
