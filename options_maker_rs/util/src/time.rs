@@ -10,8 +10,8 @@ pub fn from_ts(secs: i64) -> DateTime<Local> {
     datetime.with_timezone(&Local)
 }
 
-pub fn days_ago(days: i64) -> DateTime<Local> {
-    let time = Local::now() - Duration::days(days);
+pub fn days_ago(days: u64) -> DateTime<Local> {
+    let time = Local::now() - Duration::days(days as i64);
     time.with_time(NaiveTime::from_hms_opt(0, 0, 0).unwrap())
         .unwrap()
 }

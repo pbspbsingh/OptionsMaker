@@ -51,7 +51,7 @@ async fn main() -> anyhow::Result<()> {
         && tokio::fs::metadata(asset_dir).await?.is_dir()
     {
         info!(
-            "Using asset dir: {:?}",
+            "Serving static assets from: {:?}",
             Path::new(asset_dir).canonicalize()?
         );
         router = router.fallback_service(

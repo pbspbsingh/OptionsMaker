@@ -1,4 +1,5 @@
-use chrono::NaiveDateTime;
+use chrono::{Duration, NaiveDate, NaiveDateTime};
+use itertools::Itertools;
 use schwab_client::Candle;
 use serde_json::{Map, Value};
 use std::collections::HashMap;
@@ -6,7 +7,7 @@ use std::fmt::Display;
 use std::fmt::Write;
 use std::ops::Index;
 
-#[derive(Default)]
+#[derive(Clone)]
 pub struct DataFrame {
     index: Vec<NaiveDateTime>,
     col_names: Vec<String>,
@@ -14,6 +15,20 @@ pub struct DataFrame {
 }
 
 impl DataFrame {
+    pub fn from_cols(cols: impl IntoIterator<Item = impl Into<String>>) -> Self {
+        let index = Vec::new();
+        let col_names = cols.into_iter().map(|s| s.into()).collect::<Vec<_>>();
+        let columns = col_names
+            .iter()
+            .map(|name| (name.clone(), Vec::new()))
+            .collect();
+        DataFrame {
+            index,
+            col_names,
+            columns,
+        }
+    }
+
     pub fn from_candles(candles: &[Candle]) -> Self {
         let mut index = Vec::with_capacity(candles.len());
         let mut opens = Vec::with_capacity(candles.len());
@@ -70,6 +85,46 @@ impl DataFrame {
             .into_iter()
             .chain(self.col_names.iter().cloned())
             .collect()
+    }
+
+    pub fn trim_working_days(&self, days: usize) -> Self {
+        let work_days = self
+            .index
+            .iter()
+            .fold(
+                HashMap::<NaiveDate, (NaiveDateTime, NaiveDateTime)>::new(),
+                |mut map, &idx| {
+                    let entry = map.entry(idx.date()).or_insert_with(|| (idx, idx));
+                    entry.0 = entry.0.min(idx);
+                    entry.1 = entry.1.max(idx);
+                    map
+                },
+            )
+            .into_iter()
+            .map(|(key, (min, max))| (key, max - min))
+            .filter(|(_, diff)| *diff >= Duration::hours(7))
+            .map(|(key, _)| key)
+            .sorted()
+            .collect::<Vec<_>>();
+        if work_days.len() <= days {
+            return self.clone();
+        }
+
+        let days_to_keep = &work_days[(work_days.len() - days)..];
+        let min_day = days_to_keep.first().unwrap();
+        let mut df = DataFrame::from_cols(&self.col_names);
+        self.index
+            .iter()
+            .enumerate()
+            .filter(|(_, idx)| idx.date() >= *min_day)
+            .for_each(|(i, idx)| {
+                df.index.push(*idx);
+                for col in &self.col_names {
+                    let column = df.columns.get_mut(col).unwrap();
+                    column.push(self.columns[col][i]);
+                }
+            });
+        df
     }
 
     pub fn json(&self) -> Value {

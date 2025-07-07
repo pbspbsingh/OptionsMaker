@@ -9,8 +9,16 @@ pub static APP_CONFIG: LazyLock<AppConfig> = LazyLock::new(|| {
         .unwrap_or_else(|| String::from("config.toml"));
     let config = std::fs::read_to_string(&config_file)
         .unwrap_or_else(|_| panic!("Failed to read config file {config_file:?}"));
-    toml::from_str(&config)
-        .unwrap_or_else(|e| panic!("Failed to parse as AppConfig toml: {e}\n{config}"))
+    let config = toml::from_str::<AppConfig>(&config)
+        .unwrap_or_else(|e| panic!("Failed to parse as AppConfig toml: {e}\n{config}"));
+    if config.timeframes.len() != config.tf_days.len() {
+        panic!(
+            "Length of timeframes and tf_days must match: {} vs {}",
+            config.timeframes.len(),
+            config.tf_days.len()
+        );
+    }
+    config
 });
 
 #[derive(Debug, Deserialize)]
@@ -27,16 +35,17 @@ pub struct AppConfig {
     pub asset_dir: Option<String>,
     #[serde(deserialize_with = "parse_timeframes")]
     pub timeframes: Vec<Duration>,
-    pub timeframe_multiplier: u64,
+    pub tf_days: Vec<u64>,
+    pub look_back_days: u64,
     pub replay_mode: bool,
     pub replay_start_time: Option<String>,
 }
 
 fn parse_timeframes<'de, D: Deserializer<'de>>(deserializer: D) -> Result<Vec<Duration>, D::Error> {
-    let duration_str: String = Deserialize::deserialize(deserializer)?;
+    let duration_str: Vec<String> = Deserialize::deserialize(deserializer)?;
     duration_str
-        .split(',')
-        .map(str::trim)
+        .iter()
+        .map(|s| s.trim())
         .filter(|s| !s.is_empty())
         .map(|s| {
             parse_duration(s).map_err(|_| Error::custom(format!("Failed to parse duration {s}")))

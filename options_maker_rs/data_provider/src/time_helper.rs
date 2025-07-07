@@ -37,7 +37,7 @@ fn is_working_day(date: NaiveDate, candles: &[Candle]) -> bool {
         .iter()
         .rfind(|candle| candle.time.date_naive() == date);
     match (first, last) {
-        (Some(first), Some(last)) => (last.time - first.time) >= TimeDelta::hours(4),
+        (Some(first), Some(last)) => (last.time - first.time) >= TimeDelta::hours(7),
         _ => false,
     }
 }

@@ -8,13 +8,14 @@ use ta_lib::{momentum, overlap, volatility};
 
 pub struct Chart {
     tf: Duration,
+    days: usize,
     df: DataFrame,
 }
 
 impl Chart {
-    pub fn new(tf: Duration) -> Self {
-        let df = DataFrame::default();
-        Self { tf, df }
+    pub fn new(tf: Duration, days: usize) -> Self {
+        let df = DataFrame::from_cols(["na"]);
+        Self { tf, days, df }
     }
 
     pub fn update(&mut self, candles: &[Candle]) {
@@ -24,6 +25,11 @@ impl Chart {
             .insert_column("rsi", rsi(&self.df["close"]))
             .unwrap();
         self.df.insert_column("ma", ema(&self.df["close"])).unwrap();
+        self.df
+            .insert_column("histogram", macd_hist(&self.df["close"]))
+            .unwrap();
+
+        self.df = self.df.trim_working_days(self.days);
     }
 
     pub fn atr(&self) -> Option<f64> {
@@ -94,6 +100,11 @@ fn rsi(close: &[f64]) -> Vec<f64> {
 fn ema(close: &[f64]) -> Vec<f64> {
     let ema = overlap::ema(close, 200).expect("Failed to compute ema");
     fix_len(ema, close.len())
+}
+
+fn macd_hist(close: &[f64]) -> Vec<f64> {
+    let (_, _, hist) = momentum::macd(close, 12, 26, 9).expect("Failed to compute macd_hist");
+    fix_len(hist, close.len())
 }
 
 fn fix_len(mut values: Vec<f64>, expected_len: usize) -> Vec<f64> {
