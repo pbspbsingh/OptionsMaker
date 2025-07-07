@@ -33,13 +33,13 @@ pub async fn init_auth() -> anyhow::Result<TokenResponse> {
         .with_context(|| format!("Couldn't parse {}", APP_CONFIG.schwab_callback_url))?;
     info!("Initializing client with callback url: {redirect_url}");
 
-    let auth_url = format!("{}/v1/oauth/authorize", API_URL);
+    let auth_url = format!("{API_URL}/v1/oauth/authorize");
     let mut auth_url =
         Url::parse(&auth_url).with_context(|| format!("Couldn't parse {auth_url}"))?;
     auth_url
         .query_pairs_mut()
         .append_pair("client_id", &APP_CONFIG.schwab_client_id)
-        .append_pair("redirect_uri", &redirect_url.to_string())
+        .append_pair("redirect_uri", redirect_url.as_ref())
         .append_pair("response_type", "code")
         .append_pair("scope", "readonly");
     info!("Auth url:\n{auth_url}\n");
@@ -164,7 +164,7 @@ async fn exchange_tokens(code: &str, redirect_uri: &str) -> anyhow::Result<Token
     );
     info!("Sending post request for token exchange");
     let response = HTTP_CLIENT
-        .post(format!("{}/v1/oauth/token", API_URL))
+        .post(format!("{API_URL}/v1/oauth/token"))
         .header(header::AUTHORIZATION, auth_header)
         .header(header::CONTENT_TYPE, "application/x-www-form-urlencoded")
         .form(&params)
@@ -195,10 +195,10 @@ pub async fn fetch_access_token(refresh_token: &str) -> anyhow::Result<(String, 
 
     info!("Sending post request for token exchange");
     let response = HTTP_CLIENT
-        .post(format!("{}/v1/oauth/token", API_URL))
+        .post(format!("{API_URL}/v1/oauth/token"))
         .header(
             header::AUTHORIZATION,
-            format!("Basic {}", encoded_credentials),
+            format!("Basic {encoded_credentials}"),
         )
         .header(header::CONTENT_TYPE, "application/x-www-form-urlencoded")
         .form(&form_data)

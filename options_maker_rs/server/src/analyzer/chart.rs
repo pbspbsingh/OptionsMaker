@@ -98,9 +98,8 @@ fn ema(close: &[f64]) -> Vec<f64> {
 
 fn fix_len(mut values: Vec<f64>, expected_len: usize) -> Vec<f64> {
     if values.len() < expected_len {
-        std::iter::repeat(f64::NAN)
-            .take(expected_len - values.len())
-            .chain(values.into_iter())
+        std::iter::repeat_n(f64::NAN, expected_len - values.len())
+            .chain(values)
             .collect()
     } else {
         values.truncate(expected_len);

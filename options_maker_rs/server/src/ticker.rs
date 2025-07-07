@@ -32,7 +32,7 @@ async fn add_new_ticker(Query(symbols): Query<HashMap<String, String>>) -> AppRe
 
 async fn remove_ticker(Query(symbols): Query<HashMap<String, String>>) -> AppResult<()> {
     if APP_CONFIG.replay_mode {
-        return Err(AppError::GenericError(
+        return Err(AppError::Generic(
             "Can't remove ticker in replay mode".to_owned(),
         ));
     }
@@ -43,7 +43,7 @@ async fn remove_ticker(Query(symbols): Query<HashMap<String, String>>) -> AppRes
         analyzer::send_analyzer_cmd(AnalyzerCmd::Remove(symbol));
         Ok(())
     } else {
-        Err(AppError::GenericError(
+        Err(AppError::Generic(
             "Couldn't remove ticker {symbol}".to_string(),
         ))
     }
@@ -56,7 +56,7 @@ async fn update_replay_info(Json(replay): Json<ReplayInfo>) -> AppResult<()> {
 
 async fn reload_ticker(Query(symbols): Query<HashMap<String, String>>) -> AppResult<()> {
     if !APP_CONFIG.replay_mode {
-        return Err(AppError::GenericError(
+        return Err(AppError::Generic(
             "Can't reload ticker in live mode".to_owned(),
         ));
     }
@@ -65,7 +65,7 @@ async fn reload_ticker(Query(symbols): Query<HashMap<String, String>>) -> AppRes
     info!("Reloading ticker: {symbol}");
     let instruments = persist::ticker::fetch_instruments().await?;
     let Some(my_ins) = instruments.into_iter().find(|ins| symbol == ins.symbol) else {
-        return Err(AppError::GenericError(format!(
+        return Err(AppError::Generic(format!(
             "No instrument found for {symbol:?}"
         )));
     };

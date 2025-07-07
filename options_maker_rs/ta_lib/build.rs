@@ -75,7 +75,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         .expect("Couldn't write bindings!");
 
     println!("cargo:rerun-if-changed=build.rs");
-    println!("cargo:rerun-if-changed={}", talib_src_dir);
+    println!("cargo:rerun-if-changed={talib_src_dir}");
 
     Ok(())
 }

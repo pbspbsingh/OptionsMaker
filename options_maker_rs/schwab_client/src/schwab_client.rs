@@ -80,7 +80,7 @@ impl SchwabClient {
                 let (access_token, expires_in) =
                     auth::fetch_access_token(&refresh_token.refresh_token)
                         .await
-                        .map_err(|e| SchwabError::AuthError(e))?;
+                        .map_err(SchwabError::AuthError)?;
                 let expires_at = time::now() + Duration::seconds(expires_in);
                 info!("Fetched new access token, expires at {expires_at}");
                 let client = SchwabClient {
@@ -103,9 +103,7 @@ impl SchwabClient {
             info!("Refresh token doesn't exist, requires auth");
         };
 
-        let token = auth::init_auth()
-            .await
-            .map_err(|e| SchwabError::AuthError(e))?;
+        let token = auth::init_auth().await.map_err(SchwabError::AuthError)?;
         info!("Authenticated Successfully");
         let refresh_token = RefreshToken {
             refresh_token: token.refresh_token,
@@ -189,7 +187,7 @@ impl SchwabClient {
         }
 
         let response = HTTP_CLIENT
-            .get(format!("{}/trader/v1/accounts/accountNumbers", API_URL))
+            .get(format!("{API_URL}/trader/v1/accounts/accountNumbers"))
             .bearer_auth(self.access_token.read().await.access_token.clone())
             .send()
             .await?;
@@ -233,7 +231,7 @@ impl SchwabClient {
         period: Option<Period>,
         need_extended_hours_data: bool,
     ) -> SchwabResult<Vec<Candle>> {
-        let url = format!("{}/marketdata/v1/pricehistory", API_URL);
+        let url = format!("{API_URL}/marketdata/v1/pricehistory");
         let mut query_params = vec![
             ("symbol", symbol.to_uppercase()),
             (
@@ -332,9 +330,9 @@ impl SchwabClient {
         }
 
         let value = response.json::<Value>().await?;
-        let value = value.as_object().ok_or_else(|| {
-            SchwabError::ApiError(444, format!("Invalid response: {}", value.to_string()))
-        })?;
+        let value = value
+            .as_object()
+            .ok_or_else(|| SchwabError::ApiError(444, format!("Invalid response: {value}")))?;
         let mut response = HashMap::new();
         for value in value.values() {
             let Some(symbol) = value.get("symbol").and_then(Value::as_str) else {
@@ -376,7 +374,7 @@ impl SchwabClient {
             .and_then(|obj| obj.get("instruments"))
             .and_then(Value::as_array)
             .cloned()
-            .unwrap_or_else(|| Vec::new());
+            .unwrap_or_else(Vec::new);
         let instrument = instruments
             .into_iter()
             .filter_map(|instrument| serde_json::from_value::<Instrument>(instrument).ok())

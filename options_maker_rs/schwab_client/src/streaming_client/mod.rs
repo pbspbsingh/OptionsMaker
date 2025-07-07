@@ -119,7 +119,7 @@ impl StreamingClient {
                         Some(cmd) = cmd_receiver.recv() => {
                             match cmd {
                                 StreamCommand::Subscribe(sub, symbols) => {
-                                    let subcribed = subscribed_symbols.entry(sub).or_insert_with(HashSet::new);
+                                    let subcribed = subscribed_symbols.entry(sub).or_default();
                                     let cmd = if subcribed.is_empty() { "SUBS" } else { "ADD" };
                                     let symbols = symbols.into_iter()
                                                     .filter(|s| !subcribed.contains(s))
@@ -134,7 +134,7 @@ impl StreamingClient {
                                     }
                                 }
                                 StreamCommand::Unsubscribe(sub, symbols) => {
-                                    let subcribed = subscribed_symbols.entry(sub).or_insert_with(HashSet::new);
+                                    let subcribed = subscribed_symbols.entry(sub).or_default();
                                     let symbols = symbols.into_iter()
                                                     .filter(|s| subcribed.contains(s))
                                                     .collect::<Vec<_>>();
@@ -185,6 +185,8 @@ impl StreamingClient {
                     }
                 }
 
+                drop(config);
+                drop(ws_stream);
                 let mut wait_time = Duration::from_secs(15);
                 (config, ws_stream) = loop {
                     if !clients_alive() {

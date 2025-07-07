@@ -78,7 +78,7 @@ impl Streamer {
 
             debug!("WS Response: {msg}");
             if msg.is_text() {
-                let Ok(data) = serde_json::from_str::<Value>(&msg.to_text()?) else {
+                let Ok(data) = serde_json::from_str::<Value>(msg.to_text()?) else {
                     continue;
                 };
                 let Some((code, msg)) = Self::get_login_response(data, request_id) else {
@@ -131,7 +131,7 @@ impl Streamer {
 
         info!("Fetching StreamerInfo");
         let response = HTTP_CLIENT
-            .get(format!("{}/trader/v1/userPreference", API_URL))
+            .get(format!("{API_URL}/trader/v1/userPreference"))
             .bearer_auth(access_token)
             .send()
             .await?;
@@ -151,7 +151,7 @@ impl Streamer {
         Ok(user_prefs.streamer_info.pop().unwrap())
     }
 
-    pub fn prepare_ws_command<'a>(
+    pub fn prepare_ws_command(
         &self,
         cmd: &str,
         sub: Subscription,
@@ -267,8 +267,8 @@ impl Subscription {
             }
             Subscription::EquityLevelOne => {
                 let key = value.get("key").and_then(Value::as_str)?;
-                let quote = cache.entry(key.to_owned()).or_insert_with(Default::default);
-                Self::fill_equity_quote(quote, &value);
+                let quote = cache.entry(key.to_owned()).or_default();
+                Self::fill_equity_quote(quote, value);
                 StreamResponse::EquityLevelOne {
                     symbol: key.to_owned(),
                     quote: quote.clone(),
@@ -276,7 +276,7 @@ impl Subscription {
             }
             Subscription::OptionsLevelOne => {
                 let key = value.get("key").and_then(Value::as_str)?;
-                let quote = cache.entry(key.to_owned()).or_insert_with(Default::default);
+                let quote = cache.entry(key.to_owned()).or_default();
                 Self::fill_options_quote(quote, value);
                 StreamResponse::OptionsLevelOne {
                     symbol: key.to_owned(),

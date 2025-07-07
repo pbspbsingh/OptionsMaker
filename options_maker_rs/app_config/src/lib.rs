@@ -5,8 +5,7 @@ use std::time::Duration;
 
 pub static APP_CONFIG: LazyLock<AppConfig> = LazyLock::new(|| {
     let config_file = std::env::args()
-        .skip(1)
-        .next()
+        .nth(1)
         .unwrap_or_else(|| String::from("config.toml"));
     let config = std::fs::read_to_string(&config_file)
         .unwrap_or_else(|_| panic!("Failed to read config file {config_file:?}"));

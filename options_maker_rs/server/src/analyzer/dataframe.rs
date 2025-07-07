@@ -91,7 +91,7 @@ impl DataFrame {
                     },
                 );
             }
-            rows.push(Value::Object(row.into()));
+            rows.push(Value::Object(row));
         }
         Value::Array(rows)
     }
@@ -137,7 +137,7 @@ where
 
     fn index(&self, index: T) -> &Self::Output {
         let col = index.as_ref();
-        &self.columns.get(col).unwrap_or_else(|| {
+        self.columns.get(col).unwrap_or_else(|| {
             panic!(
                 "Column {} not found, available columns: {:?}",
                 col, self.col_names

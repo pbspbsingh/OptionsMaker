@@ -13,7 +13,7 @@ pub fn split_by_last_work_day(candles: Vec<Candle>) -> (Vec<Candle>, Vec<Candle>
         .partition(|candle| candle.time.date_naive() < last_working_day)
 }
 
-fn get_last_working_day(candles: &[Candle]) -> chrono::NaiveDate {
+fn get_last_working_day(candles: &[Candle]) -> NaiveDate {
     let mut candidate = util::time::now().date_naive();
 
     loop {
@@ -24,7 +24,7 @@ fn get_last_working_day(candles: &[Candle]) -> chrono::NaiveDate {
     }
 }
 
-fn is_working_day(date: chrono::NaiveDate, candles: &[Candle]) -> bool {
+fn is_working_day(date: NaiveDate, candles: &[Candle]) -> bool {
     // Skip weekends
     if matches!(date.weekday(), Weekday::Sat | Weekday::Sun) {
         return false;

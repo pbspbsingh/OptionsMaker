@@ -6,18 +6,18 @@ pub type AppResult<T> = std::result::Result<T, AppError>;
 #[derive(Debug, thiserror::Error)]
 pub enum AppError {
     #[error("Axum error: {0}")]
-    AxumError(#[from] axum::Error),
+    Axum(#[from] axum::Error),
     #[error("Anyhow Error: {0}")]
-    AnyhowError(#[from] anyhow::Error),
+    Anyhow(#[from] anyhow::Error),
     #[error("Database Error: {0}")]
-    DBError(#[from] persist::Error),
+    DB(#[from] persist::Error),
     #[error("{0}")]
-    GenericError(String),
+    Generic(String),
 }
 
 impl From<String> for AppError {
     fn from(value: String) -> Self {
-        AppError::GenericError(value)
+        AppError::Generic(value)
     }
 }
 
