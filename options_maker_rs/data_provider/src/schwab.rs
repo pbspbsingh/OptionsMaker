@@ -59,8 +59,7 @@ impl DataProvider for SchwabProvider {
             .get_price_history(
                 symbol,
                 Frequency::Minute(if use_5min { 5 } else { 1 }),
-                Some(fetch_from),
-                None,
+                Some((fetch_from, util::time::now())),
                 None,
                 true,
             )

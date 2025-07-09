@@ -1,5 +1,6 @@
 use crate::analyzer;
 use crate::analyzer::AnalyzerCmd;
+use app_config::APP_CONFIG;
 use axum::Router;
 use axum::extract::WebSocketUpgrade;
 use axum::extract::ws::{Message, WebSocket};
@@ -91,11 +92,11 @@ fn to_message(value: Value) -> Message {
     }
 
     let payload = value.to_string();
-    if payload.len() >= 500 {
+    if APP_CONFIG.disable_ws_compression || payload.len() < 500 {
+        Message::text(payload)
+    } else {
         compress(payload.as_bytes())
             .map(Message::binary)
             .unwrap_or_else(|_| Message::text(payload))
-    } else {
-        Message::text(payload)
     }
 }

@@ -226,8 +226,7 @@ impl SchwabClient {
         &self,
         symbol: &str,
         frequency: Frequency,
-        start_date: Option<DateTime<Local>>,
-        end_date: Option<DateTime<Local>>,
+        date_range: Option<(DateTime<Local>, DateTime<Local>)>,
         period: Option<Period>,
         need_extended_hours_data: bool,
     ) -> SchwabResult<Vec<Candle>> {
@@ -242,11 +241,9 @@ impl SchwabClient {
         let (freq_type, freq_val) = frequency.to_params();
         query_params.push(("frequencyType", freq_type));
         query_params.push(("frequency", freq_val));
-        if let (Some(start), Some(end)) = (start_date, end_date) {
+        if let Some((start, end)) = date_range {
             query_params.push(("startDate", format!("{}", start.timestamp_millis())));
             query_params.push(("endDate", format!("{}", end.timestamp_millis())));
-        } else if let Some(start) = start_date {
-            query_params.push(("startDate", format!("{}", start.timestamp_millis())));
         } else if let Some(period) = period {
             let (period_type, period_val) = period.to_params();
             query_params.push(("periodType", period_type));

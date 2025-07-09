@@ -39,6 +39,8 @@ pub struct AppConfig {
     pub look_back_days: u64,
     pub replay_mode: bool,
     pub replay_start_time: Option<String>,
+    #[serde(default)]
+    pub disable_ws_compression: bool,
 }
 
 fn parse_timeframes<'de, D: Deserializer<'de>>(deserializer: D) -> Result<Vec<Duration>, D::Error> {

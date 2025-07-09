@@ -3,6 +3,10 @@ name = "server"
 version = "0.1.0"
 edition = "2024"
 
+[[bin]]
+name = "options_maker"
+path = "src/main.rs"
+
 [dependencies]
 anyhow = { workspace = true }
 thiserror = { workspace = true }
