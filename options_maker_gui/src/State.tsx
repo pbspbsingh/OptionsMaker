@@ -59,12 +59,21 @@ export type Divergence = {
     end_rsi: number,
 };
 
+export type Trend = {
+    trend: string,
+    start: string,
+    startTime: number,
+    end?: string,
+    endTime?: number,
+};
+
 export type Chart = {
     timeframe: number,
     prices: Price[],
     rsiBracket?: number[],
     divergences: Divergence[],
     messages: string[],
+    trend?: Trend,
 };
 
 export type Symbol = {

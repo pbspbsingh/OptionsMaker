@@ -1,9 +1,10 @@
 .left-nav {
+    display: flex;
+    flex-direction: column;
+    justify-content: start;
     width: 280px;
     padding-top: 1rem;
     height: 100vh;
-    overflow-x: hidden;
-    overflow-y: auto;
 
     p {
         margin-block-end: .4rem;
@@ -32,6 +33,11 @@
     }
 
     .tickers {
+        flex: 1;
+        overflow-x: hidden;
+        overflow-y: auto;
+        padding-bottom: 6px;
+
         li {
             padding-block: .2rem;
             font-size: .9rem;
@@ -61,10 +67,7 @@
     }
 
     .bottom-form {
-        position: fixed;
-        width: 280px;
-        bottom: 0;
-        margin: 0;
+        margin-top: .6rem;
         padding-right: .2rem;
         --pico-form-element-spacing-vertical: 0.3rem
     }

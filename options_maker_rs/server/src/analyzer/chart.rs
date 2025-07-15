@@ -2,7 +2,6 @@ use crate::analyzer::dataframe::DataFrame;
 use crate::analyzer::trend_filter::{FilterParam, Trend, TrendFilter, bb, volume};
 use chrono::{DateTime, Local};
 use schwab_client::Candle;
-use serde::Serialize;
 use serde_json::{Value, json};
 use std::collections::BTreeMap;
 use std::time::Duration;
@@ -17,7 +16,6 @@ pub struct Chart {
     messages: Vec<String>,
 }
 
-#[derive(Debug, Serialize)]
 struct TrendWrapper {
     trend: Trend,
     start: DateTime<Local>,
@@ -121,8 +119,22 @@ impl Chart {
             "prices": self.df.json(),
             "rsiBracket": [30, 70],
             "divergences": [],
-            "trend": self.trend,
+            "trend": self.trend_json(),
             "messages": &self.messages,
+        })
+    }
+
+    fn trend_json(&self) -> Value {
+        let Some(trend) = self.trend.as_ref() else {
+            return json!(null);
+        };
+
+        json!({
+            "trend": trend.trend,
+            "start": trend.start.naive_local().time(),
+            "startTime": trend.start.timestamp(),
+            "end": trend.end.map(|t| t.naive_local().time()),
+            "endTime": trend.end.map(|t| t.timestamp())
         })
     }
 
