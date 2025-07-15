@@ -20,15 +20,15 @@ pub fn band(FilterParam { df, output, .. }: FilterParam) -> Trend {
         return Trend::None;
     }
 
-    // let len = bbw.len();
-    // if bbw[len - 3] > bbw[len - 2] {
-    //     output.push(format!(
-    //         "Bollinger band width has decreased {:.2} --> {:.2}",
-    //         bbw[len - 3],
-    //         bbw[len - 2],
-    //     ));
-    //     return Trend::None;
-    // }
+    let len = bbw.len();
+    if bbw[len - 2] > bbw[len - 1] {
+        output.push(format!(
+            "Bollinger band width has decreased {:.2} --> {:.2}",
+            bbw[len - 2],
+            bbw[len - 1],
+        ));
+        return Trend::None;
+    }
 
     Trend::Strong
 }

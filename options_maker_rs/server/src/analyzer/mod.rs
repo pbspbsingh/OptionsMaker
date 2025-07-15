@@ -35,6 +35,7 @@ pub async fn start_analysis() -> anyhow::Result<()> {
     tokio::spawn(async move {
         while let Ok(response) = stream_receiver.recv().await {
             if let StreamResponse::Equity { symbol, candle } = response {
+                debug!("Received chart equity candle for {symbol}");
                 chart_sender
                     .send((symbol, candle))
                     .expect("Error passing on chart candle");
