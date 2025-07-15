@@ -40,6 +40,7 @@ export type Price = {
     volume: number,
     rsi?: number,
     ma?: number,
+    bbw?: number,
 };
 
 export type PriceLevel = {
@@ -63,6 +64,7 @@ export type Chart = {
     prices: Price[],
     rsiBracket?: number[],
     divergences: Divergence[],
+    messages: string[],
 };
 
 export type Symbol = {

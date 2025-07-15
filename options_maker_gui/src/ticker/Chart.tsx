@@ -12,7 +12,7 @@ import { useEffect, useRef } from "react";
 import { priceToVol } from "../utils";
 
 import type { Chart } from "../State";
-import { useDivergences, useMA, useRsiLine } from "./chartComponents";
+import { useDivergences, useMA, useBottomBar } from "./chartComponents";
 import { useStopLimits, type StopLimits } from "./stopLimits";
 
 export interface ChartProps {
@@ -77,7 +77,19 @@ export default function Chart({ chart, limits, isOrderSubmitted, onLimitUpdate }
     }, [chartRef, chart.prices]);
 
     useMA(chartRef, chart.prices);
-    useRsiLine(chartRef, chart.prices, chart.rsiBracket);
+    useBottomBar({
+        chartRef,
+        prices: chart.prices,
+        name: "rsi",
+        bottomIdx: 1,
+        bracket: chart.rsiBracket
+    });
+    useBottomBar({
+        chartRef,
+        prices: chart.prices,
+        name: "bbw",
+        bottomIdx: 2,
+    });
     useDivergences(chartRef, chart.divergences ?? []);
     useStopLimits(chartRef, candlesRef, limits, isOrderSubmitted, onLimitUpdate);
 

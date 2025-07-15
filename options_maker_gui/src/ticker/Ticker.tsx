@@ -70,6 +70,7 @@ export default function Ticker() {
     if (symbol == null) {
         return null;
     }
+
     const quote = quotes[symbol.symbol];
     return (
         <div className="ticker">
@@ -100,8 +101,8 @@ export default function Ticker() {
                     onUpdate={newOrder => { if (validOrder(newOrder, lastPrice)) setWipOrder(newOrder) }}
                 />}
             <section className="grid all-charts">
-                {symbol.charts.map((chart) => (
-                    <Chart key={`${symbol.symbol}_${chart.timeframe}`}
+                {symbol.charts.map((chart) => (<div key={`${symbol.symbol}_${chart.timeframe}`}>
+                    <Chart
                         chart={chart}
                         isOrderSubmitted={false}
                         limits={wipOrder != null ? {
@@ -110,7 +111,10 @@ export default function Ticker() {
                         } : {}}
                         onLimitUpdate={onStopLimitUpdate}
                     />
-                ))}
+                    <pre className="messages">
+                        {chart.messages.join('\n')}
+                    </pre>
+                </div>))}
             </section>
             <section className="metainfo">
                 <p>Last Updated: {new Date(symbol.last_updated * 1000).toLocaleString()}</p>

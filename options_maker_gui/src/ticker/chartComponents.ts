@@ -10,69 +10,78 @@ import type {
     Price,
     PriceLevel
 } from "../State";
-import { priceToMa, priceToRsi } from "../utils";
+import { priceToMa, extractKey } from "../utils";
 import { deepEqual } from "../compare";
 
-export function useRsiLine(chartRef: React.RefObject<IChartApi | null>, prices: Price[], rsiBracket?: number[]) {
-    const rsiLineRef = useRef<ISeriesApi<"Line">>(null);
-    const rsiBracketsLinesRef = useRef<{ lines: IPriceLine[], data: number[] }>({ lines: [], data: [] });
+export interface BottomBarParams {
+    chartRef: React.RefObject<IChartApi | null>,
+    prices: Price[],
+    name: keyof Price,
+    bottomIdx: number,
+    bracket?: number[],
+    color?: string,
+}
+
+export function useBottomBar({ chartRef, prices, name, bottomIdx, bracket, color }: BottomBarParams) {
+    const bottomLineRef = useRef<ISeriesApi<"Line">>(null);
+    const bottomBracketLinesRef = useRef<{ lines: IPriceLine[], data: number[] }>({ lines: [], data: [] });
 
     useEffect(() => {
         const chart = chartRef.current;
         if (chart == null) return;
 
-        if (prices.length > 0 && prices[prices.length - 1].rsi != null) {
-            rsiLineRef.current = chart.addSeries(
+        if (prices.length > 0 && prices[prices.length - 1][name] != null) {
+            bottomLineRef.current = chart.addSeries(
                 LineSeries,
                 {
                     lastValueVisible: true,
                     priceLineVisible: false,
-                    lineWidth: 2,
+                    lineWidth: 1,
+                    color,
                 },
-                1,
+                bottomIdx,
             );
-            rsiLineRef.current.setData(prices.map(priceToRsi))
-            chart.panes()[1].setHeight(150);
+            bottomLineRef.current.setData(prices.map(price => extractKey(price, name)));
+            chart.panes()[0].setHeight(400);
         }
         return () => {
             // rsiBracketsLinesRef.current.lines.forEach(line => rsiLineRef.current?.removePriceLine(line));
-            rsiBracketsLinesRef.current = { lines: [], data: [] };
-            rsiLineRef.current = null;
+            bottomBracketLinesRef.current = { lines: [], data: [] };
+            bottomLineRef.current = null;
         };
     }, [chartRef]);
 
     useEffect(() => {
-        const rsiLine = rsiLineRef.current;
-        if (rsiLine == null) return;
+        const bottomLine = bottomLineRef.current;
+        if (bottomLine == null) return;
 
         if (prices.length > 0) {
-            const rsiData = rsiLine.data();
-            const last = prices[prices.length - 1];
-            if (rsiData.length === 0 || last.time as number < (rsiData[rsiData.length - 1].time as number)) {
-                rsiLine.setData(prices.map(priceToRsi))
+            if (Math.abs(bottomLine.data().length - prices.length) > 1) {
+                bottomLine.setData(prices.map(price => extractKey(price, name)));
             } else {
-                rsiLine.update(priceToRsi(last));
+                const last = prices[prices.length - 1];
+                bottomLine.update(extractKey(last, name));
             }
         }
-    }, [rsiLineRef, prices]);
+    }, [bottomLineRef, prices]);
 
     useEffect(() => {
-        const rsiLine = rsiLineRef.current;
-        if (rsiLine == null) return;
+        const bottomLine = bottomLineRef.current;
+        if (bottomLine == null) return;
 
-        const { lines: prevLines, data: prevData } = rsiBracketsLinesRef.current;
-        if (!deepEqual(rsiBracket, prevData)) {
-            prevLines.forEach(l => rsiLine.removePriceLine(l));
+        const { lines: prevLines, data: prevData } = bottomBracketLinesRef.current;
+        if (!deepEqual(bracket, prevData)) {
+            prevLines.forEach(line => bottomLine.removePriceLine(line));
 
-            const newLines = rsiBracket?.map(price => rsiLine.createPriceLine({
+            const newLines = bracket?.map(price => bottomLine.createPriceLine({
                 price,
                 lineWidth: 1,
                 axisLabelVisible: false,
                 lineStyle: 4,
             }));
-            rsiBracketsLinesRef.current = { lines: newLines ?? [], data: rsiBracket ?? [] };
+            bottomBracketLinesRef.current = { lines: newLines ?? [], data: bracket ?? [] };
         }
-    }, [rsiLineRef, rsiBracket])
+    }, [bottomLineRef, bracket])
 }
 
 export function useMA(chartRef: React.RefObject<IChartApi | null>, prices: Price[]) {

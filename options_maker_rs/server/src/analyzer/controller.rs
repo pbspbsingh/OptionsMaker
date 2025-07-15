@@ -12,13 +12,13 @@ pub struct Controller {
 
 impl Controller {
     pub fn new(symbol: String, candles: Vec<Candle>) -> Self {
-        let mut charts = APP_CONFIG
+        let charts = APP_CONFIG
+            .trade_config
             .timeframes
             .iter()
-            .zip(&APP_CONFIG.tf_days)
-            .map(|(tf, days)| Chart::new(*tf, *days as usize))
+            .zip(&APP_CONFIG.trade_config.tf_days)
+            .map(|(tf, days)| Chart::new(&candles, *tf, *days as usize))
             .collect::<Vec<_>>();
-        charts.iter_mut().for_each(|chart| chart.update(&candles));
         Self {
             symbol,
             candles,
@@ -33,7 +33,7 @@ impl Controller {
     pub fn on_new_candle(&mut self, candle: Candle, publish: bool) {
         self.candles.push(candle);
         for chart in &mut self.charts {
-            chart.update(&self.candles);
+            chart.update(&self.candles, publish && !APP_CONFIG.replay_mode);
         }
 
         if publish {

@@ -1,6 +1,7 @@
 mod chart;
 mod controller;
 mod dataframe;
+mod trend_filter;
 
 use crate::analyzer::controller::Controller;
 use crate::websocket;
@@ -47,7 +48,9 @@ pub async fn start_analysis() -> anyhow::Result<()> {
     let mut controllers = HashMap::new();
     for ins in instruments {
         debug!("Processing instrument: {}", ins.symbol);
-        let controller = init_controller(&ins).await?;
+        let Ok(controller) = init_controller(&ins).await else {
+            continue;
+        };
         controllers.insert(ins.symbol, controller);
     }
     provider().sub_charts(controllers.keys().cloned().collect());
@@ -95,19 +98,25 @@ pub async fn start_analysis() -> anyhow::Result<()> {
 }
 
 pub async fn init_controller(instrument: &Instrument) -> anyhow::Result<Controller> {
-    let start = util::time::days_ago(APP_CONFIG.look_back_days);
-    let (base_candles, process) = provider()
+    let start = util::time::days_ago(APP_CONFIG.trade_config.look_back_days);
+    let (base_candles, update_candles) = provider()
         .fetch_price_history(&instrument.symbol, start)
         .await?;
     info!(
         "Initializing {} controller with {} candles and will process {} candles",
         instrument.symbol,
         base_candles.len(),
-        process.len()
+        update_candles.len()
     );
+    if base_candles.is_empty() || update_candles.is_empty() {
+        return Err(anyhow::anyhow!(
+            "Didn't fetch any candles for {}",
+            instrument.symbol
+        ));
+    }
 
     let mut controller = Controller::new(instrument.symbol.clone(), base_candles);
-    for candle in process {
+    for candle in update_candles {
         controller.on_new_candle(candle, false);
     }
     Ok(controller)

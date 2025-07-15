@@ -8,15 +8,12 @@ export const priceToVol = (price: Price): { time: UTCTimestamp, value: number, c
     color: price.open <= price.close ? 'rgba(38, 166, 154, 0.5)' : 'rgba(239, 83, 80, 0.5)',
 });
 
-export const priceToRsi = (price: Price): { time: UTCTimestamp, value?: number } => ({
+export const extractKey = (price: Price, name: keyof Price): { time: UTCTimestamp, value?: number } => ({
     time: price.time,
-    value: price.rsi != null ? price.rsi : undefined,
+    value: price[name] != null ? price[name] : undefined,
 });
 
-export const priceToMa = (price: Price): { time: UTCTimestamp, value?: number } => ({
-    time: price.time,
-    value: price.ma != null ? price.ma : undefined,
-});
+export const priceToMa = (price: Price): { time: UTCTimestamp, value?: number } => extractKey(price, "ma");
 
 export function useLastPrice(ticker: string): number {
     const { symbols, quotes } = useContext(AppStateContext);

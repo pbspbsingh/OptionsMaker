@@ -1,24 +1,54 @@
 use crate::analyzer::dataframe::DataFrame;
+use crate::analyzer::trend_filter::{FilterParam, Trend, TrendFilter, bb, volume};
 use chrono::{DateTime, Local};
 use schwab_client::Candle;
+use serde::Serialize;
 use serde_json::{Value, json};
 use std::collections::BTreeMap;
 use std::time::Duration;
-use ta_lib::{momentum, overlap, volatility};
+use ta_lib::{momentum, overlap, ta, volatility};
 
 pub struct Chart {
     tf: Duration,
     days: usize,
     df: DataFrame,
+    trend: Option<TrendWrapper>,
+    filters: Vec<TrendFilter>,
+    messages: Vec<String>,
+}
+
+#[derive(Debug, Serialize)]
+struct TrendWrapper {
+    trend: Trend,
+    start: DateTime<Local>,
+    end: Option<DateTime<Local>>,
 }
 
 impl Chart {
-    pub fn new(tf: Duration, days: usize) -> Self {
-        let df = DataFrame::from_cols(["na"]);
-        Self { tf, days, df }
+    pub fn new(candles: &[Candle], tf: Duration, days: usize) -> Self {
+        let filters = vec![volume::high_rvol, volume::high_cur_time_vol, bb::band];
+        let mut chart = Self {
+            tf,
+            days,
+            df: DataFrame::from_cols([""]),
+            trend: None,
+            filters,
+            messages: vec![],
+        };
+        let aggregated = chart.aggregate(candles);
+        chart.df = DataFrame::from_candles(&aggregated);
+        chart
     }
 
-    pub fn update(&mut self, candles: &[Candle]) {
+    pub fn update(&mut self, candles: &[Candle], one_min_candle: bool) {
+        self.compute_indicators(candles);
+
+        self.df = self.df.trim_working_days(self.days);
+
+        self.compute_trend(candles, one_min_candle);
+    }
+
+    fn compute_indicators(&mut self, candles: &[Candle]) {
         let aggregated = self.aggregate(candles);
         self.df = DataFrame::from_candles(&aggregated);
         self.df
@@ -26,10 +56,57 @@ impl Chart {
             .unwrap();
         self.df.insert_column("ma", ema(&self.df["close"])).unwrap();
         self.df
-            .insert_column("histogram", macd_hist(&self.df["close"]))
+            .insert_column("bbw", bbw(&self.df["close"]))
             .unwrap();
+    }
 
-        self.df = self.df.trim_working_days(self.days);
+    fn compute_trend(&mut self, candles: &[Candle], one_min_candle: bool) {
+        self.messages.clear();
+
+        let mut next_trend = Trend::None;
+        for filter in &self.filters {
+            let cur_trend = self
+                .trend
+                .as_ref()
+                .map(|t| {
+                    if t.end.is_none() {
+                        t.trend
+                    } else {
+                        Trend::None
+                    }
+                })
+                .unwrap_or(Trend::None);
+            next_trend = filter(FilterParam {
+                candles,
+                df: &self.df,
+                tf: self.tf,
+                one_min_candle,
+                cur_trend,
+                output: &mut self.messages,
+            });
+            if next_trend == Trend::None {
+                break;
+            }
+        }
+
+        let cur_time = candles.last().unwrap().time;
+        if let Some(trend) = &mut self.trend {
+            if trend.end.is_some() && next_trend != Trend::None {
+                *trend = TrendWrapper {
+                    trend: next_trend,
+                    start: cur_time,
+                    end: None,
+                };
+            } else if trend.end.is_none() && next_trend == Trend::None {
+                trend.end = Some(cur_time);
+            }
+        } else if next_trend != Trend::None {
+            self.trend = Some(TrendWrapper {
+                trend: next_trend,
+                start: cur_time,
+                end: None,
+            });
+        }
     }
 
     pub fn atr(&self) -> Option<f64> {
@@ -44,6 +121,8 @@ impl Chart {
             "prices": self.df.json(),
             "rsiBracket": [30, 70],
             "divergences": [],
+            "trend": self.trend,
+            "messages": &self.messages,
         })
     }
 
@@ -94,26 +173,35 @@ impl Chart {
 
 fn rsi(close: &[f64]) -> Vec<f64> {
     let rsi = momentum::rsi(close, 14).expect("Failed to compute rsi");
-    fix_len(rsi, close.len())
+    fill_na_gap(rsi, close.len())
 }
 
 fn ema(close: &[f64]) -> Vec<f64> {
     let ema = overlap::ema(close, 200).expect("Failed to compute ema");
-    fix_len(ema, close.len())
+    fill_na_gap(ema, close.len())
 }
 
-fn macd_hist(close: &[f64]) -> Vec<f64> {
-    let (_, _, hist) = momentum::macd(close, 12, 26, 9).expect("Failed to compute macd_hist");
-    fix_len(hist, close.len())
+fn bbw(close: &[f64]) -> Vec<f64> {
+    let (upper, avg, lower) = overlap::bbands(close, 20, 2.0, 2.0, ta::TA_MAType_TA_MAType_WMA)
+        .expect("Failed to compute bbw");
+    let bbw = upper
+        .into_iter()
+        .zip(avg)
+        .zip(lower)
+        .map(|((u, m), l)| 100.0 * (u - l) / m)
+        .collect::<Vec<_>>();
+    fill_na_gap(bbw, close.len())
 }
 
-fn fix_len(mut values: Vec<f64>, expected_len: usize) -> Vec<f64> {
+fn fill_na_gap(mut values: Vec<f64>, expected_len: usize) -> Vec<f64> {
     if values.len() < expected_len {
         std::iter::repeat_n(f64::NAN, expected_len - values.len())
             .chain(values)
             .collect()
-    } else {
+    } else if values.len() > expected_len {
         values.truncate(expected_len);
+        values
+    } else {
         values
     }
 }

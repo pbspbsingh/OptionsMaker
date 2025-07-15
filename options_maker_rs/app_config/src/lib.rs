@@ -11,11 +11,11 @@ pub static APP_CONFIG: LazyLock<AppConfig> = LazyLock::new(|| {
         .unwrap_or_else(|_| panic!("Failed to read config file {config_file:?}"));
     let config = toml::from_str::<AppConfig>(&config)
         .unwrap_or_else(|e| panic!("Failed to parse as AppConfig toml: {e}\n{config}"));
-    if config.timeframes.len() != config.tf_days.len() {
+    if config.trade_config.timeframes.len() != config.trade_config.tf_days.len() {
         panic!(
             "Length of timeframes and tf_days must match: {} vs {}",
-            config.timeframes.len(),
-            config.tf_days.len()
+            config.trade_config.timeframes.len(),
+            config.trade_config.tf_days.len()
         );
     }
     config
@@ -33,14 +33,24 @@ pub struct AppConfig {
     pub db_url: String,
     pub http_port: u16,
     pub asset_dir: Option<String>,
+    #[serde(default)]
+    pub disable_ws_compression: bool,
+
+    pub replay_mode: bool,
+    pub replay_start_time: Option<String>,
+
+    pub trade_config: TradeConfig,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct TradeConfig {
+    pub use_extended_hour: bool,
     #[serde(deserialize_with = "parse_timeframes")]
     pub timeframes: Vec<Duration>,
     pub tf_days: Vec<u64>,
     pub look_back_days: u64,
-    pub replay_mode: bool,
-    pub replay_start_time: Option<String>,
-    #[serde(default)]
-    pub disable_ws_compression: bool,
+    pub rvol_multiplier: f64,
+    pub bbw_ratio: f64,
 }
 
 fn parse_timeframes<'de, D: Deserializer<'de>>(deserializer: D) -> Result<Vec<Duration>, D::Error> {

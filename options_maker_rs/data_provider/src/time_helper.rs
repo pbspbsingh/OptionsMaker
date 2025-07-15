@@ -14,14 +14,19 @@ pub fn split_by_last_work_day(candles: Vec<Candle>) -> (Vec<Candle>, Vec<Candle>
 }
 
 fn get_last_working_day(candles: &[Candle]) -> NaiveDate {
+    let first_day = candles
+        .first()
+        .expect("Candle list is empty")
+        .time
+        .date_naive();
     let mut candidate = util::time::now().date_naive();
-
-    loop {
+    while candidate > first_day {
         candidate = candidate.pred_opt().unwrap();
         if is_working_day(candidate, candles) {
-            break candidate;
+            return candidate;
         }
     }
+    first_day
 }
 
 fn is_working_day(date: NaiveDate, candles: &[Candle]) -> bool {
@@ -37,7 +42,7 @@ fn is_working_day(date: NaiveDate, candles: &[Candle]) -> bool {
         .iter()
         .rfind(|candle| candle.time.date_naive() == date);
     match (first, last) {
-        (Some(first), Some(last)) => (last.time - first.time) >= TimeDelta::hours(7),
+        (Some(first), Some(last)) => (last.time - first.time) >= TimeDelta::hours(6),
         _ => false,
     }
 }

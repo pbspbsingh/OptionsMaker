@@ -50,6 +50,7 @@ impl DataProvider for SchwabProvider {
 
         debug!("Fetching price history for {symbol} from {fetch_from}");
         let &min_tf = APP_CONFIG
+            .trade_config
             .timeframes
             .first()
             .expect("Failed to get timeframes");
@@ -61,7 +62,7 @@ impl DataProvider for SchwabProvider {
                 Frequency::Minute(if use_5min { 5 } else { 1 }),
                 Some((fetch_from, util::time::now())),
                 None,
-                true,
+                APP_CONFIG.trade_config.use_extended_hour,
             )
             .await?;
         log_candles("Fetched", &candles);
@@ -69,6 +70,9 @@ impl DataProvider for SchwabProvider {
 
         let candles = persist::prices::load_prices(symbol, start, None).await?;
         log_candles("Loaded", &candles);
+        if candles.is_empty() {
+            return Err(anyhow::anyhow!("No candles loaded for {symbol}"));
+        }
 
         Ok(split_by_last_work_day(candles))
     }

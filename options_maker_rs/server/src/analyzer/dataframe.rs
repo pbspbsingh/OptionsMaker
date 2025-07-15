@@ -71,7 +71,9 @@ impl DataFrame {
         }
 
         let col_name = name.into();
-        self.col_names.push(col_name.clone());
+        if !self.columns.contains_key(&col_name) {
+            self.col_names.push(col_name.clone());
+        }
         self.columns.insert(col_name, data);
         Ok(())
     }
@@ -102,7 +104,7 @@ impl DataFrame {
             )
             .into_iter()
             .map(|(key, (min, max))| (key, max - min))
-            .filter(|(_, diff)| *diff >= Duration::hours(7))
+            .filter(|(_, diff)| *diff >= Duration::hours(6))
             .map(|(key, _)| key)
             .sorted()
             .collect::<Vec<_>>();

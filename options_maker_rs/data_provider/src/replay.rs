@@ -89,11 +89,15 @@ impl DataProvider for ReplayProvider {
         };
         log_candles(format!("Replay for {symbol}"), &replay_batch);
         replay_batch.reverse();
+        let mut update_batch = Vec::new();
+        if let Some(last) = replay_batch.pop() {
+            update_batch.push(last);
+        }
         self.replay_data
             .lock()
             .await
             .insert(symbol.to_owned(), replay_batch);
-        Ok((init_batch, Vec::new()))
+        Ok((init_batch, update_batch))
     }
 
     fn listener(&self) -> broadcast::Receiver<StreamResponse> {
