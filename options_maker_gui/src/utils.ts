@@ -1,5 +1,10 @@
 import type { UTCTimestamp } from "lightweight-charts";
-import { AppStateContext, type Price } from "./State";
+import {
+    AppStateContext,
+    type Price,
+    type Symbol,
+    type Trend,
+} from "./State";
 import { useContext } from "react";
 
 export const priceToVol = (price: Price): { time: UTCTimestamp, value: number, color: string } => ({
@@ -33,3 +38,22 @@ export function useLastPrice(ticker: string): number {
 
 // Convert PST timestap to UTC timestap, +7 hours
 export const toChartDate = (date: number) => new Date((date + 7 * 3600) * 1000)
+
+export function getTrends(symbols: { [x: string]: Symbol }): { ticker: string, trend: Trend }[][] {
+    const trends: { ticker: string, trend: Trend }[][] = [];
+    for (const [ticker, symbol] of Object.entries(symbols)) {
+        for (const [i, chart] of symbol.charts.entries()) {
+            if (chart.trend != null) {
+                if (trends[i] == null) {
+                    trends[i] = [];
+                }
+                trends[i].push({ ticker, trend: chart.trend });
+            }
+        }
+    }
+    for (const trend of trends) {
+        trend.sort((a, b) => b.trend.startTime - a.trend.startTime);
+    }
+    trends.reverse();
+    return trends;
+}

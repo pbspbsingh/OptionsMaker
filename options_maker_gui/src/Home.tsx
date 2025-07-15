@@ -1,7 +1,7 @@
 import { useContext } from "react";
 import { AppStateContext, type Divergence } from "./State";
 import { Link } from "react-router";
-import { toChartDate } from "./utils";
+import { getTrends, toChartDate } from "./utils";
 
 export default function Home() {
     const { symbols } = useContext(AppStateContext);
@@ -14,8 +14,27 @@ export default function Home() {
         return [symbol.symbol, divs[0]] as [string, Divergence];
     }).filter(div => div != null);
     divergences.sort(([_n1, d1], [_n2, d2]) => d2.end - d1.end);
-    
+
+    const trendsList = getTrends(symbols);
+
     return (<section className="grid">
+        <article>
+            <header>
+                <h6>Trending</h6>
+            </header>
+            {trendsList.length > 0 && trendsList.map((trends, idx) =>
+                <div key={idx}>
+                    <ul>
+                        {trends.map(({ ticker, trend }) =>
+                            <li key={ticker}>
+                                <Link to={`/ticker/${ticker}`} title={`${new Date(trend.startTime)}`}>
+                                    {ticker}: {trend.start} {trend.end != null ? ` - ${trend.end}` : ''}
+                                </Link>
+                            </li>)}
+                    </ul>
+                    {idx != trendsList.length - 1 && <hr />}
+                </div>)}
+        </article>
         <article>
             <header>
                 <h6>Divergences</h6>
@@ -28,11 +47,6 @@ export default function Home() {
                     </Link>
                 </li>))}
             </ul>
-        </article>
-        <article>
-            <header>
-                <h6>Logs</h6>
-            </header>
         </article>
     </section>);
 }
