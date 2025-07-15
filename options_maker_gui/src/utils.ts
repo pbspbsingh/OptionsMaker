@@ -43,10 +43,10 @@ export function getTrends(symbols: { [x: string]: Symbol }): { ticker: string, t
     const trends: { ticker: string, trend: Trend }[][] = [];
     for (const [ticker, symbol] of Object.entries(symbols)) {
         for (const [i, chart] of symbol.charts.entries()) {
+            if (trends[i] == null) {
+                trends[i] = [];
+            }
             if (chart.trend != null) {
-                if (trends[i] == null) {
-                    trends[i] = [];
-                }
                 trends[i].push({ ticker, trend: chart.trend });
             }
         }

@@ -8,6 +8,7 @@ use app_config::APP_CONFIG;
 use axum::Router;
 use std::net::Ipv4Addr;
 use std::path::Path;
+use std::time::Instant;
 use time::macros::format_description;
 use tokio::net::TcpListener;
 use tower_http::services::{ServeDir, ServeFile};
@@ -20,6 +21,7 @@ static GLOBAL: mimalloc::MiMalloc = mimalloc::MiMalloc;
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
+    let start = Instant::now();
     rustls::crypto::ring::default_provider()
         .install_default()
         .expect("Unable to install default crypto");
@@ -59,6 +61,7 @@ async fn main() -> anyhow::Result<()> {
                 .not_found_service(ServeFile::new(format!("{asset_dir}/index.html"))),
         );
     }
+    info!("Initialized server in {:?}", start.elapsed());
     axum::serve(tcp_listener, router)
         .await
         .context("server failed to start")?;
