@@ -12,7 +12,7 @@ use schwab_client::{Candle, Instrument};
 use schwab_client::streaming_client::StreamResponse;
 use serde::{Deserialize, Serialize};
 use std::sync::OnceLock;
-use tokio::sync::broadcast;
+use tokio::sync::mpsc;
 use tracing::info;
 
 static PROVIDER: OnceLock<Box<dyn DataProvider + Send + Sync>> = OnceLock::new();
@@ -33,7 +33,7 @@ pub trait DataProvider {
         start: DateTime<Local>,
     ) -> anyhow::Result<(Vec<Candle>, Vec<Candle>)>;
 
-    fn listener(&self) -> broadcast::Receiver<StreamResponse>;
+    fn listener(&self) -> mpsc::UnboundedReceiver<StreamResponse>;
 
     fn sub_charts(&self, symbols: Vec<String>);
 

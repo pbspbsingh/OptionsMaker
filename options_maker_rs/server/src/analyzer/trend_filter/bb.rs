@@ -47,7 +47,7 @@ fn find_last_low(data: &[f64]) -> Option<(usize, f64)> {
 }
 
 fn bottom_ratio(nums: &[f64], value: f64) -> f64 {
-    let high = nums.iter().map(|x| *x).fold(f64::NEG_INFINITY, f64::max);
-    let low = nums.iter().map(|x| *x).fold(f64::INFINITY, f64::min);
+    let high = nums.iter().copied().fold(f64::NEG_INFINITY, f64::max);
+    let low = nums.iter().copied().fold(f64::INFINITY, f64::min);
     (value - low) / (high - low)
 }

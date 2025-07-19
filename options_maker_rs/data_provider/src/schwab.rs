@@ -7,7 +7,7 @@ use chrono::{DateTime, Duration, Local};
 use schwab_client::schwab_client::{Frequency, SchwabClient, SearchProjection};
 use schwab_client::streaming_client::{StreamResponse, StreamingClient, Subscription};
 use schwab_client::{Candle, Instrument};
-use tokio::sync::broadcast::Receiver;
+use tokio::sync::mpsc;
 use tracing::{debug, info};
 
 pub struct SchwabProvider {
@@ -77,8 +77,8 @@ impl DataProvider for SchwabProvider {
         Ok(split_by_last_work_day(candles))
     }
 
-    fn listener(&self) -> Receiver<StreamResponse> {
-        self.streaming_client.receiver()
+    fn listener(&self) -> mpsc::UnboundedReceiver<StreamResponse> {
+        self.streaming_client.create_subscription()
     }
 
     fn sub_charts(&self, symbols: Vec<String>) {

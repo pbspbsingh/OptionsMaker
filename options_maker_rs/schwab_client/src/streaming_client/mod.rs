@@ -9,7 +9,7 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::Duration;
 use streamer::Streamer;
 
-use tokio::sync::{RwLock, broadcast, mpsc};
+use tokio::sync::{RwLock, mpsc};
 use tokio_tungstenite::tungstenite::Message;
 use tracing::{debug, info, warn};
 
@@ -17,7 +17,6 @@ mod streamer;
 
 pub struct StreamingClient {
     cmd_sender: mpsc::UnboundedSender<StreamCommand>,
-    response_receiver: broadcast::Receiver<StreamResponse>,
     is_alive: Arc<AtomicBool>,
 }
 
@@ -39,6 +38,7 @@ pub enum StreamResponse {
 enum StreamCommand {
     Subscribe(Subscription, Vec<String>),
     Unsubscribe(Subscription, Vec<String>),
+    AddSubscriber(mpsc::UnboundedSender<StreamResponse>),
 }
 
 impl StreamingClient {
@@ -47,13 +47,11 @@ impl StreamingClient {
         main_client_alive: Arc<AtomicBool>,
     ) -> SchwabResult<Self> {
         let is_alive = Arc::new(AtomicBool::new(true));
-
-        let (cmd_sender, response_receiver) =
+        let cmd_sender =
             Self::init_inner(access_token, is_alive.clone(), main_client_alive).await?;
 
         Ok(Self {
             cmd_sender,
-            response_receiver,
             is_alive,
         })
     }
@@ -78,21 +76,21 @@ impl StreamingClient {
         self.cmd_sender.send(command).ok();
     }
 
-    pub fn receiver(&self) -> broadcast::Receiver<StreamResponse> {
-        self.response_receiver.resubscribe()
+    pub fn create_subscription(&self) -> mpsc::UnboundedReceiver<StreamResponse> {
+        let (sender, receiver) = mpsc::unbounded_channel::<StreamResponse>();
+
+        let command = StreamCommand::AddSubscriber(sender);
+        self.cmd_sender.send(command).unwrap();
+
+        receiver
     }
 
     async fn init_inner(
         access_token: Arc<RwLock<AccessToken>>,
         streaming_client_alive: Arc<AtomicBool>,
         main_client_alive: Arc<AtomicBool>,
-    ) -> SchwabResult<(
-        mpsc::UnboundedSender<StreamCommand>,
-        broadcast::Receiver<StreamResponse>,
-    )> {
+    ) -> SchwabResult<mpsc::UnboundedSender<StreamCommand>> {
         let (cmd_sender, mut cmd_receiver) = mpsc::unbounded_channel::<StreamCommand>();
-        let (response_sender, response_receiver) = broadcast::channel::<StreamResponse>(16);
-
         let (mut config, mut ws_stream) = Streamer::connect(access_token.clone()).await?;
 
         tokio::spawn(async move {
@@ -100,6 +98,7 @@ impl StreamingClient {
                 main_client_alive.load(Ordering::Relaxed)
                     && streaming_client_alive.load(Ordering::Relaxed)
             };
+            let mut subscribers = HashMap::new();
             let mut subscribed_symbols = HashMap::<Subscription, HashSet<String>>::new();
             'main: while clients_alive() {
                 for (&sub, symbols) in &subscribed_symbols {
@@ -149,6 +148,10 @@ impl StreamingClient {
                                         }
                                     }
                                 }
+                                StreamCommand::AddSubscriber(sender) => {
+                                    let max_key = subscribers.keys().max().copied().unwrap_or(0);
+                                    subscribers.insert(max_key + 1, sender);
+                                }
                             }
                         },
                         Some(msg) = ws_stream.next() => {
@@ -167,8 +170,19 @@ impl StreamingClient {
                                     debug!("Received text message from websocket: {text}");
                                     if let Some(data) = msg.get("data") {
                                         let responses = config.parse_response(data);
+                                        debug!("Parsed text message into {} responses", responses.len());
+
+                                        let mut failed_subs = Vec::with_capacity(subscribers.len());
                                         for response in responses {
-                                            response_sender.send(response).ok();
+                                            for (&key, sub) in &subscribers {
+                                                if sub.send(response.clone()).is_err() {
+                                                    warn!("Subscriber {key} is gone, removing the subscription");
+                                                    failed_subs.push(key);
+                                                }
+                                            }
+                                        }
+                                        for key in failed_subs {
+                                            subscribers.remove(&key);
                                         }
                                     }
                                 }
@@ -187,6 +201,7 @@ impl StreamingClient {
 
                 drop(config);
                 drop(ws_stream);
+
                 let mut wait_time = Duration::from_secs(15);
                 (config, ws_stream) = loop {
                     if !clients_alive() {
@@ -210,7 +225,7 @@ impl StreamingClient {
                 }
             }
         });
-        Ok((cmd_sender, response_receiver))
+        Ok(cmd_sender)
     }
 }
 

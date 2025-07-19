@@ -27,7 +27,7 @@ pub fn high_rvol(
     }
     let Some(avg_vol) = ema(&volumes[..volumes.len() - 1], 20)
         .ok()
-        .and_then(|vol| vol.last().map(|d| *d))
+        .and_then(|vol| vol.last().copied())
     else {
         output.push("Couldn't compute average volume".to_string());
         return Trend::None;

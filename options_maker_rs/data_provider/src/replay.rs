@@ -7,30 +7,31 @@ use chrono::{DateTime, Local};
 use schwab_client::streaming_client::StreamResponse;
 use schwab_client::{Candle, Instrument};
 use std::collections::HashMap;
-use std::sync::Arc;
+use std::sync::{Arc, RwLock};
 use std::time::{Duration, Instant};
-use tokio::sync::{Mutex, broadcast};
+use tokio::sync::{Mutex, mpsc};
 use tracing::info;
 
 pub struct ReplayProvider {
     replay_data: Arc<Mutex<HashMap<String, Vec<Candle>>>>,
     replay_info: Arc<Mutex<ReplayInfo>>,
-    receiver: broadcast::Receiver<StreamResponse>,
+    senders: Arc<RwLock<Vec<mpsc::UnboundedSender<StreamResponse>>>>,
 }
 
 impl ReplayProvider {
     pub async fn init() -> anyhow::Result<Self> {
-        let (sender, receiver) = broadcast::channel(16);
         let replay_data = Arc::new(Mutex::new(HashMap::<String, Vec<Candle>>::new()));
         let replay_info = Arc::new(Mutex::new(ReplayInfo {
             playing: false,
             speed: 500,
             symbol: String::default(),
         }));
+        let senders = Arc::new(RwLock::new(Vec::<mpsc::UnboundedSender<_>>::new()));
 
         tokio::spawn({
             let replay_data = replay_data.clone();
             let replay_info = replay_info.clone();
+            let senders = senders.clone();
             async move {
                 let mut last_sent = Instant::now();
                 loop {
@@ -47,7 +48,11 @@ impl ReplayProvider {
                         && let Some(candle) = candles.pop()
                     {
                         let symbol = replay_info.symbol.clone();
-                        sender.send(StreamResponse::Equity { symbol, candle }).ok();
+                        let response = StreamResponse::Equity { symbol, candle };
+                        for sender in &*senders.read().unwrap() {
+                            sender.send(response.clone()).ok();
+                        }
+
                         last_sent = Instant::now();
                     }
                 }
@@ -57,7 +62,7 @@ impl ReplayProvider {
         Ok(Self {
             replay_data,
             replay_info,
-            receiver,
+            senders,
         })
     }
 }
@@ -100,8 +105,10 @@ impl DataProvider for ReplayProvider {
         Ok((init_batch, update_batch))
     }
 
-    fn listener(&self) -> broadcast::Receiver<StreamResponse> {
-        self.receiver.resubscribe()
+    fn listener(&self) -> mpsc::UnboundedReceiver<StreamResponse> {
+        let (tx, rx) = mpsc::unbounded_channel();
+        self.senders.write().unwrap().push(tx);
+        rx
     }
 
     fn sub_charts(&self, _symbols: Vec<String>) {}

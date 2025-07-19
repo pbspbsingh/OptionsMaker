@@ -7,10 +7,11 @@ use crate::analyzer::controller::Controller;
 use crate::websocket;
 use app_config::APP_CONFIG;
 use data_provider::provider;
+use schwab_client::Instrument;
 use schwab_client::streaming_client::StreamResponse;
-use schwab_client::{Candle, Instrument};
 use std::collections::HashMap;
 use std::sync::OnceLock;
+use std::time::Instant;
 use tokio::sync::mpsc;
 use tracing::{debug, info, warn};
 
@@ -28,21 +29,7 @@ pub async fn start_analysis() -> anyhow::Result<()> {
         .set(sender)
         .expect("Failed to initialize Analyzer Commander");
 
-    // Create a local unbounded channel to avoid dropping stream response
-    // when stream response overwhelms the consumption, especially with level one data
-    let mut stream_receiver = provider().listener();
-    let (chart_sender, mut chart_recv) = mpsc::unbounded_channel::<(String, Candle)>();
-    tokio::spawn(async move {
-        while let Ok(response) = stream_receiver.recv().await {
-            if let StreamResponse::Equity { symbol, candle } = response {
-                debug!("Received chart equity candle for {symbol}");
-                chart_sender
-                    .send((symbol, candle))
-                    .expect("Error passing on chart candle");
-            }
-        }
-    });
-
+    let mut stream_listener = provider().listener();
     let instruments = persist::ticker::fetch_instruments().await?;
     info!("Starting analysis of {} symbols", instruments.len());
 
@@ -59,11 +46,15 @@ pub async fn start_analysis() -> anyhow::Result<()> {
     tokio::spawn(async move {
         loop {
             tokio::select! {
-                Some((symbol, candle)) = chart_recv.recv() => {
-                    if let Some(controller) = controllers.get_mut(&symbol) {
-                        controller.on_new_candle(candle, true);
-                    } else {
-                        warn!("Unexpected chart candle received for {symbol}");
+                Some(stream_res) = stream_listener.recv() => {
+                    if let StreamResponse::Equity {symbol, candle} = stream_res {
+                        if let Some(controller) = controllers.get_mut(&symbol) {
+                            let start = Instant::now();
+                            controller.on_new_candle(candle, true);
+                            debug!("Processed new candle for {} in {:.2?}", symbol, start.elapsed());
+                        } else {
+                            warn!("Unexpected chart candle received for {symbol}");
+                        }
                     }
                 }
                 Some(cmd) = cmd_recv.recv() => {
