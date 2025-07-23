@@ -1,6 +1,6 @@
 {
   "db_name": "SQLite",
-  "query": "\n            SELECT ts, open, low, high, close, volume\n            FROM prices\n            WHERE symbol = $1\n            ORDER BY ts DESC\n        ",
+  "query": "\n            SELECT ts, open, low, high, close, volume, duration\n            FROM prices\n            WHERE symbol = $1\n            ORDER BY ts DESC\n            LIMIT 1\n        ",
   "describe": {
     "columns": [
       {
@@ -32,6 +32,11 @@
         "name": "volume",
         "ordinal": 5,
         "type_info": "Integer"
+      },
+      {
+        "name": "duration",
+        "ordinal": 6,
+        "type_info": "Integer"
       }
     ],
     "parameters": {
@@ -43,8 +48,9 @@
       false,
       false,
       false,
+      false,
       false
     ]
   },
-  "hash": "ae3251c1f389603c02ddd9ff2c6eaa417323b4f27411952c42e7f24dab0533c3"
+  "hash": "9a33660075644aac142e0806773c6d9d4ade118cee3ca6db170b8a5f2d9d8617"
 }
