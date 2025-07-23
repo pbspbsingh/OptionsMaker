@@ -5,10 +5,11 @@ use sqlx::types::chrono::{DateTime, Local};
 pub async fn recent_price(symbol: &str) -> sqlx::Result<Option<Candle>> {
     sqlx::query!(
         r"
-            SELECT ts, open, low, high, close, volume
+            SELECT ts, open, low, high, close, volume, duration
             FROM prices
             WHERE symbol = $1
             ORDER BY ts DESC
+            LIMIT 1
         ",
         symbol
     )
@@ -19,6 +20,7 @@ pub async fn recent_price(symbol: &str) -> sqlx::Result<Option<Candle>> {
         close: rec.close,
         volume: rec.volume as u64,
         time: rec.ts.and_local_timezone(Local).unwrap(),
+        duration: rec.duration,
     })
     .fetch_optional(db())
     .await
@@ -35,7 +37,7 @@ pub async fn load_prices(
         .unwrap_or_else(|| util::time::now().naive_local());
     sqlx::query!(
         r"
-            SELECT ts, open, low, high, close, volume
+            SELECT ts, open, low, high, close, volume, duration
             FROM prices
             WHERE symbol = $1 AND ts >= $2 AND ts <= $3
             ORDER BY ts ASC
@@ -51,6 +53,7 @@ pub async fn load_prices(
         close: rec.close,
         volume: rec.volume as u64,
         time: rec.ts.and_local_timezone(Local).unwrap(),
+        duration: rec.duration,
     })
     .fetch_all(db())
     .await
@@ -63,14 +66,15 @@ pub async fn save_prices(symbol: &str, candles: impl AsRef<[Candle]>) -> sqlx::R
         let volume = candle.volume as i64;
         sqlx::query!(
             r"
-            INSERT INTO prices (symbol, ts, open, low, high, close, volume)
-            VALUES ($1, $2, $3, $4, $5, $6, $7)
+            INSERT INTO prices (symbol, ts, open, low, high, close, volume, duration)
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
             ON CONFLICT (symbol, ts) DO UPDATE SET
                 open=$3,
                 low=$4,
                 high=$5,
                 close=$6,
-                volume=$7
+                volume=$7,
+                duration=$8
 
         ",
             symbol,
@@ -80,6 +84,7 @@ pub async fn save_prices(symbol: &str, candles: impl AsRef<[Candle]>) -> sqlx::R
             candle.high,
             candle.close,
             volume,
+            candle.duration,
         )
         .execute(&mut *trans)
         .await?;

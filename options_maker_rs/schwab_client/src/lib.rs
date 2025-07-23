@@ -62,6 +62,7 @@ pub struct Candle {
     pub close: f64,
     pub volume: u64,
     pub time: DateTime<Local>,
+    pub duration: i64,
 }
 
 #[derive(Clone, Debug, Default, Serialize, Deserialize)]

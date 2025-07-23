@@ -262,6 +262,7 @@ impl Subscription {
                         close: ce.close,
                         volume: ce.volume as u64,
                         time: util::time::from_ts(ce.time / 1000),
+                        duration: 60,
                     },
                 }
             }

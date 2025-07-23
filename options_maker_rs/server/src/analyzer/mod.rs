@@ -42,19 +42,32 @@ pub async fn start_analysis() -> anyhow::Result<()> {
         controllers.insert(ins.symbol, controller);
     }
     provider().sub_charts(controllers.keys().cloned().collect());
+    provider().sub_tick(controllers.keys().cloned().collect());
 
     tokio::spawn(async move {
         loop {
             tokio::select! {
                 Some(stream_res) = stream_listener.recv() => {
-                    if let StreamResponse::Equity {symbol, candle} = stream_res {
-                        if let Some(controller) = controllers.get_mut(&symbol) {
-                            let start = Instant::now();
-                            controller.on_new_candle(candle, true);
-                            debug!("Processed new candle for {} in {:.2?}", symbol, start.elapsed());
-                        } else {
-                            warn!("Unexpected chart candle received for {symbol}");
+                    match stream_res {
+                        StreamResponse::Equity { symbol,candle } => {
+                            if let Some(controller) = controllers.get_mut(&symbol) {
+                                let start = Instant::now();
+                                controller.on_new_candle(candle, true);
+                                debug!("Processed new candle for {} in {:.2?}", symbol, start.elapsed());
+                            } else {
+                                warn!("Unexpected chart candle received for {symbol}");
+                            }
                         }
+                        StreamResponse::EquityLevelOne { symbol,quote } => {
+                            if let Some(controller) = controllers.get_mut(&symbol) {
+                                let start = Instant::now();
+                                controller.on_tick(quote);
+                                debug!("Processed new tick for {} in {:.2?}", symbol, start.elapsed());
+                            } else {
+                                warn!("Unexpected tick received for {symbol}");
+                            }
+                        }
+                        _ => { }
                     }
                 }
                 Some(cmd) = cmd_recv.recv() => {
@@ -70,12 +83,14 @@ pub async fn start_analysis() -> anyhow::Result<()> {
                             info!("Resetting the controller of {symbol}");
                             ctr.publish();
                             controllers.insert(symbol.to_owned(), ctr);
-                            provider().sub_charts(vec![symbol]);
+                            provider().sub_charts(vec![symbol.clone()]);
+                            provider().sub_tick(vec![symbol]);
                         }
                         AnalyzerCmd::Remove(symbol) => {
                             if let Some(_ctr) = controllers.remove(&symbol) {
                                 info!("Removing controller for {symbol}");
-                                provider().unsub_charts(vec![symbol]);
+                                provider().unsub_charts(vec![symbol.clone()]);
+                                provider().unsub_tick(vec![symbol]);
                             } else {
                                 warn!("Can't remove {symbol}, it's already not present");
                             }

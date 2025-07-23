@@ -54,7 +54,7 @@ impl DataProvider for SchwabProvider {
             .timeframes
             .first()
             .expect("Failed to get timeframes");
-        let use_5min = min_tf > Duration::minutes(1).to_std()?;
+        let use_5min = min_tf >= Duration::minutes(5).to_std()?;
         let candles = self
             .client
             .get_price_history(

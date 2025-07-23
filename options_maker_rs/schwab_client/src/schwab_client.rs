@@ -285,13 +285,14 @@ impl SchwabClient {
         Ok(history
             .candles
             .into_iter()
-            .map(|candle| Candle {
-                open: candle.open,
-                low: candle.low,
-                high: candle.high,
-                close: candle.close,
-                volume: candle.volume,
-                time: time::from_ts(candle.datetime / 1000),
+            .map(|ohlc| Candle {
+                open: ohlc.open,
+                low: ohlc.low,
+                high: ohlc.high,
+                close: ohlc.close,
+                volume: ohlc.volume,
+                time: time::from_ts(ohlc.datetime / 1000),
+                duration: frequency.to_secs(),
             })
             .collect())
     }
@@ -396,6 +397,16 @@ impl Frequency {
             Frequency::Weekly => ("weekly".to_string(), "1".to_string()),
             Frequency::Monthly => ("monthly".to_string(), "1".to_string()),
         }
+    }
+
+    fn to_secs(&self) -> i64 {
+        match self {
+            Frequency::Minute(m) => Duration::minutes(*m as i64),
+            Frequency::Daily => Duration::days(1),
+            Frequency::Weekly => Duration::days(7),
+            Frequency::Monthly => Duration::days(30),
+        }
+        .num_seconds()
     }
 }
 

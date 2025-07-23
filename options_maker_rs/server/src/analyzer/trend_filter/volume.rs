@@ -1,16 +1,15 @@
 use crate::analyzer::dataframe::DataFrame;
 use crate::analyzer::trend_filter::{FilterParam, Trend};
 use app_config::APP_CONFIG;
-use chrono::{NaiveDateTime, TimeDelta};
+use chrono::{Duration, NaiveDateTime};
 use schwab_client::Candle;
-use std::time::Duration;
+
 use ta_lib::overlap::ema;
 
-pub fn high_rvol(
+pub fn rvol(
     FilterParam {
         candles,
         tf,
-        one_min_candle,
         df,
         cur_trend,
         output,
@@ -33,10 +32,11 @@ pub fn high_rvol(
         return Trend::None;
     };
 
-    let norm_vol = normalized_volume(candles, df, tf, one_min_candle);
+    let norm_vol = normalized_volume(candles, df, tf);
     let rvol = norm_vol / avg_vol;
-    let cur_time = cur_time(candles, one_min_candle);
+    let cur_time = cur_time(candles);
     output.push(format!("[{cur_time}] RVOL: {rvol:.2}"));
+
     if rvol >= APP_CONFIG.trade_config.rvol_multiplier {
         Trend::Strong
     } else {
@@ -44,11 +44,10 @@ pub fn high_rvol(
     }
 }
 
-pub fn high_cur_time_vol(
+pub fn cur_time_vol(
     FilterParam {
         candles,
         tf,
-        one_min_candle,
         df,
         cur_trend,
         output,
@@ -59,14 +58,14 @@ pub fn high_cur_time_vol(
         return cur_trend;
     }
 
-    let norm_vol = normalized_volume(candles, df, tf, one_min_candle);
+    let norm_vol = normalized_volume(candles, df, tf);
     let avg_volume = avg_volume_other_days(df, *df.index().last().unwrap());
     if avg_volume == 0.0 {
         return Trend::None;
     }
 
     let cur_time_rel_vol = norm_vol / avg_volume;
-    let cur_time = cur_time(candles, one_min_candle);
+    let cur_time = cur_time(candles);
     output.push(format!("[{cur_time}] CurTimeRVOL: {cur_time_rel_vol:.2}"));
     if cur_time_rel_vol >= APP_CONFIG.trade_config.rvol_multiplier {
         Trend::Strong
@@ -75,15 +74,11 @@ pub fn high_cur_time_vol(
     }
 }
 
-fn normalized_volume(
-    candles: &[Candle],
-    df: &DataFrame,
-    tf: Duration,
-    one_min_candle: bool,
-) -> f64 {
+fn normalized_volume(candles: &[Candle], df: &DataFrame, tf: Duration) -> f64 {
     let cur_idx = *df.index().last().unwrap();
-    let cur_time = cur_time(candles, one_min_candle);
-    df["volume"].last().unwrap() * ((tf.as_secs() as f64) / (cur_time - cur_idx).as_seconds_f64())
+    let cur_time = cur_time(candles);
+    let last_volume = df["volume"].last().unwrap();
+    last_volume * ((tf.as_seconds_f64()) / (cur_time - cur_idx).as_seconds_f64())
 }
 
 fn avg_volume_other_days(df: &DataFrame, cur_idx: NaiveDateTime) -> f64 {
@@ -91,9 +86,10 @@ fn avg_volume_other_days(df: &DataFrame, cur_idx: NaiveDateTime) -> f64 {
     let mut total_volume = 0f64;
     let mut idx = (df.index().len() - 2) as isize;
     while idx >= 0 {
-        if df.index()[idx as usize].time() == cur_idx.time() {
+        let i = idx as usize;
+        if df.index()[i].time() == cur_idx.time() {
             count += 1;
-            total_volume += df["volume"][idx as usize];
+            total_volume += df["volume"][i];
         }
         idx -= 1;
     }
@@ -104,7 +100,7 @@ fn avg_volume_other_days(df: &DataFrame, cur_idx: NaiveDateTime) -> f64 {
     }
 }
 
-fn cur_time(candles: &[Candle], one_min_candle: bool) -> NaiveDateTime {
-    let gap = TimeDelta::minutes(if one_min_candle { 1 } else { 5 });
-    candles.last().unwrap().time.naive_local() + gap
+fn cur_time(candles: &[Candle]) -> NaiveDateTime {
+    let last_candle = candles.last().unwrap();
+    last_candle.time.naive_local() + Duration::seconds(last_candle.duration)
 }

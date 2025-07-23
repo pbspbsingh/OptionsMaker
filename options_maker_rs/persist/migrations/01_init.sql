@@ -19,5 +19,6 @@ CREATE TABLE prices
     high     REAL        NOT NULL,
     close    REAL        NOT NULL,
     volume   INTEGER     NOT NULL,
+    duration INTEGER     NOT NULL,
     UNIQUE (symbol, ts)
 );

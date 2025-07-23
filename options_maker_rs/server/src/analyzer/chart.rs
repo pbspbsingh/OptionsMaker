@@ -1,16 +1,15 @@
 use crate::analyzer::dataframe::DataFrame;
 use crate::analyzer::trend_filter::{FilterParam, Trend, TrendFilter, bb, volume};
-use chrono::{DateTime, Local};
+use chrono::{DateTime, Duration, Local};
 use schwab_client::Candle;
 use serde_json::{Value, json};
 use std::collections::BTreeMap;
-use std::time::Duration;
 use ta_lib::{momentum, overlap, ta, volatility};
 
 pub struct Chart {
-    tf: Duration,
+    duration: Duration,
     days: usize,
-    df: DataFrame,
+    dataframe: DataFrame,
     trend: Option<TrendWrapper>,
     filters: Vec<TrendFilter>,
     messages: Vec<String>,
@@ -23,42 +22,44 @@ struct TrendWrapper {
 }
 
 impl Chart {
-    pub fn new(candles: &[Candle], tf: Duration, days: usize) -> Self {
-        let filters = vec![volume::high_rvol, volume::high_cur_time_vol, bb::band];
-        let mut chart = Self {
-            tf,
+    pub fn new(candles: &[Candle], duration: std::time::Duration, days: usize) -> Self {
+        let duration = Duration::from_std(duration).unwrap();
+        let filters = vec![volume::rvol, volume::cur_time_vol, bb::band];
+        let aggregated = Self::aggregate(candles, duration);
+        Self {
+            duration,
             days,
-            df: DataFrame::from_cols([""]),
+            dataframe: DataFrame::from_candles(&aggregated),
             trend: None,
             filters,
             messages: vec![],
-        };
-        let aggregated = chart.aggregate(candles);
-        chart.df = DataFrame::from_candles(&aggregated);
-        chart
+        }
     }
 
-    pub fn update(&mut self, candles: &[Candle], one_min_candle: bool) {
-        self.compute_indicators(candles);
+    pub fn update(&mut self, candles: &[Candle]) {
+        let aggregated = Self::aggregate(candles, self.duration);
+        self.dataframe = DataFrame::from_candles(&aggregated);
 
-        self.df = self.df.trim_working_days(self.days);
+        self.compute_indicators();
 
-        self.compute_trend(candles, one_min_candle);
+        self.dataframe = self.dataframe.trim_working_days(self.days);
+
+        self.compute_trend(candles);
     }
 
-    fn compute_indicators(&mut self, candles: &[Candle]) {
-        let aggregated = self.aggregate(candles);
-        self.df = DataFrame::from_candles(&aggregated);
-        self.df
-            .insert_column("rsi", rsi(&self.df["close"]))
+    fn compute_indicators(&mut self) {
+        self.dataframe
+            .insert_column("rsi", rsi(&self.dataframe["close"]))
             .unwrap();
-        self.df.insert_column("ma", ema(&self.df["close"])).unwrap();
-        self.df
-            .insert_column("bbw", bbw(&self.df["close"]))
+        self.dataframe
+            .insert_column("ma", ema(&self.dataframe["close"]))
+            .unwrap();
+        self.dataframe
+            .insert_column("bbw", bbw(&self.dataframe["close"]))
             .unwrap();
     }
 
-    fn compute_trend(&mut self, candles: &[Candle], one_min_candle: bool) {
+    fn compute_trend(&mut self, candles: &[Candle]) {
         self.messages.clear();
 
         let mut next_trend = Trend::None;
@@ -76,9 +77,8 @@ impl Chart {
                 .unwrap_or(Trend::None);
             next_trend = filter(FilterParam {
                 candles,
-                df: &self.df,
-                tf: self.tf,
-                one_min_candle,
+                df: &self.dataframe,
+                tf: self.duration,
                 cur_trend,
                 output: &mut self.messages,
             });
@@ -108,15 +108,20 @@ impl Chart {
     }
 
     pub fn atr(&self) -> Option<f64> {
-        volatility::atr(&self.df["high"], &self.df["low"], &self.df["close"], 14)
-            .last()
-            .cloned()
+        volatility::atr(
+            &self.dataframe["high"],
+            &self.dataframe["low"],
+            &self.dataframe["close"],
+            14,
+        )
+        .last()
+        .copied()
     }
 
     pub fn json(&self) -> Value {
         json!({
-            "timeframe": self.tf.as_secs(),
-            "prices": self.df.json(),
+            "timeframe": self.duration.num_seconds(),
+            "prices": self.dataframe.json(),
             "rsiBracket": [30, 70],
             "divergences": [],
             "trend": self.trend_json(),
@@ -138,29 +143,31 @@ impl Chart {
         })
     }
 
-    fn aggregate(&self, candles: &[Candle]) -> Vec<Candle> {
+    fn aggregate(candles: &[Candle], duration: Duration) -> Vec<Candle> {
         let mut buckets = BTreeMap::new();
         for candle in candles {
-            let bucket = self.truncate_time(candle);
+            let bucket = Self::truncate_time(candle, duration);
             let entry = buckets.entry(bucket).or_insert_with(Vec::new);
             entry.push(candle);
         }
         buckets
             .into_iter()
-            .filter_map(|(time, ohlc)| Self::aggregate_bucket(time, ohlc))
+            .filter_map(|(time, ohlc)| Self::aggregate_bucket(time, ohlc, duration))
             .filter(|candle| candle.volume > 0)
             .collect::<Vec<_>>()
     }
 
-    fn truncate_time(&self, candle: &Candle) -> DateTime<Local> {
-        let bucket_secs = self.tf.as_secs() as i64;
+    fn truncate_time(candle: &Candle, duration: Duration) -> DateTime<Local> {
+        let bucket_secs = duration.num_seconds();
         let truncated_ts = (candle.time.timestamp() / bucket_secs) * bucket_secs;
         util::time::from_ts(truncated_ts)
     }
 
-    fn aggregate_bucket(time: DateTime<Local>, mut bucket_data: Vec<&Candle>) -> Option<Candle> {
-        bucket_data.sort_by_key(|candle| candle.time);
-
+    fn aggregate_bucket(
+        time: DateTime<Local>,
+        bucket_data: Vec<&Candle>,
+        duration: Duration,
+    ) -> Option<Candle> {
         let open = bucket_data.first()?.open;
         let close = bucket_data.last()?.close;
         let high = bucket_data
@@ -179,6 +186,7 @@ impl Chart {
             low,
             close,
             volume,
+            duration: duration.num_seconds(),
         })
     }
 }
