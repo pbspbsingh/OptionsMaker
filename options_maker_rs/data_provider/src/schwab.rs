@@ -94,6 +94,20 @@ impl DataProvider for SchwabProvider {
                 .unsubscribe(Subscription::EquityChart, symbols);
         }
     }
+
+    fn sub_tick(&self, symbols: Vec<String>) {
+        if !symbols.is_empty() {
+            self.streaming_client
+                .subscribe(Subscription::EquityLevelOne, symbols);
+        }
+    }
+
+    fn unsub_tick(&self, symbols: Vec<String>) {
+        if !symbols.is_empty() {
+            self.streaming_client
+                .unsubscribe(Subscription::EquityLevelOne, symbols);
+        }
+    }
 }
 
 pub fn log_candles(msg: impl AsRef<str>, candles: &[Candle]) {

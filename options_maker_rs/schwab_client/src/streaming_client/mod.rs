@@ -172,7 +172,7 @@ impl StreamingClient {
                                         let responses = config.parse_response(data);
                                         debug!("Parsed text message into {} responses", responses.len());
 
-                                        let mut failed_subs = Vec::with_capacity(subscribers.len());
+                                        let mut failed_subs = Vec::new();
                                         for response in responses {
                                             for (&key, sub) in &subscribers {
                                                 if sub.send(response.clone()).is_err() {

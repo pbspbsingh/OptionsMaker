@@ -39,6 +39,10 @@ pub trait DataProvider {
 
     fn unsub_charts(&self, symbols: Vec<String>);
 
+    fn sub_tick(&self, symbols: Vec<String>);
+
+    fn unsub_tick(&self, symbols: Vec<String>);
+
     async fn replay_info(&self, _update: Option<ReplayInfo>) -> Option<ReplayInfo> {
         None
     }

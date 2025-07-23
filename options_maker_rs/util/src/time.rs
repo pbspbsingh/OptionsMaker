@@ -1,15 +1,18 @@
 use chrono::{DateTime, Duration, Local, NaiveTime};
 use serde::{Deserialize, Deserializer};
 
+#[inline]
 pub fn now() -> DateTime<Local> {
     Local::now()
 }
 
+#[inline]
 pub fn from_ts(secs: i64) -> DateTime<Local> {
     let datetime = DateTime::from_timestamp(secs, 0).expect("invalid or out-of-range datetime");
     datetime.with_timezone(&Local)
 }
 
+#[inline]
 pub fn days_ago(days: u64) -> DateTime<Local> {
     let time = Local::now() - Duration::days(days as i64);
     time.with_time(NaiveTime::from_hms_opt(0, 0, 0).unwrap())
