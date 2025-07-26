@@ -69,9 +69,6 @@ export type Divergence = {
 export type Trend = {
     trend: string,
     start: string,
-    startTime: number,
-    end?: string,
-    endTime?: number,
 };
 
 export type Chart = {

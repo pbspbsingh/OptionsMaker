@@ -44,8 +44,13 @@ export function useLastPrice(ticker: string): number {
 // Convert PST timestap to UTC timestap, +7 hours
 export const toChartDate = (date: number) => new Date((date + 7 * 3600) * 1000)
 
-export function getTrends(symbols: Symbols): { ticker: string, trend: Trend }[][] {
-    const trends: { ticker: string, trend: Trend }[][] = [];
+export interface TrendWrapper {
+    ticker: string,
+    trend: Trend,
+}
+
+export function getTrends(symbols: Symbols): TrendWrapper[][] {
+    const trends: TrendWrapper[][] = [];
     for (const [ticker, symbol] of Object.entries(symbols)) {
         for (const [i, chart] of symbol.charts.entries()) {
             if (trends[i] == null) {
@@ -57,7 +62,7 @@ export function getTrends(symbols: Symbols): { ticker: string, trend: Trend }[][
         }
     }
     for (const trend of trends) {
-        trend.sort((a, b) => b.trend.startTime - a.trend.startTime);
+        trend.sort((a, b) => new Date(b.trend.start).getTime() - new Date(a.trend.start).getTime());
     }
     trends.reverse();
     return trends;
@@ -80,7 +85,7 @@ export function getSRInfo(symbols: Symbols): SupportResistance[] {
         } else {
             const aImminent = a.rejection.is_imminent ? 1 : 0;
             const bImmiment = b.rejection.is_imminent ? 1 : 0;
-            return  bImmiment - aImminent;
+            return bImmiment - aImminent;
         }
     });
     return support;

@@ -18,7 +18,6 @@ pub struct Chart {
 struct TrendWrapper {
     trend: Trend,
     start: DateTime<Local>,
-    end: Option<DateTime<Local>>,
 }
 
 impl Chart {
@@ -61,19 +60,9 @@ impl Chart {
     fn compute_trend(&mut self, candles: &[Candle]) {
         self.messages.clear();
 
+        let cur_trend = self.trend.take().map(|t| t.trend).unwrap_or(Trend::None);
         let mut next_trend = Trend::None;
         for filter in &self.filters {
-            let cur_trend = self
-                .trend
-                .as_ref()
-                .map(|t| {
-                    if t.end.is_none() {
-                        t.trend
-                    } else {
-                        Trend::None
-                    }
-                })
-                .unwrap_or(Trend::None);
             next_trend = filter(FilterParam {
                 candles,
                 df: &self.dataframe,
@@ -85,23 +74,12 @@ impl Chart {
                 break;
             }
         }
-
-        let cur_time = candles.last().unwrap().time;
-        if let Some(trend) = &mut self.trend {
-            if trend.end.is_some() && next_trend != Trend::None {
-                *trend = TrendWrapper {
-                    trend: next_trend,
-                    start: cur_time,
-                    end: None,
-                };
-            } else if trend.end.is_none() && next_trend == Trend::None {
-                trend.end = Some(cur_time);
-            }
-        } else if next_trend != Trend::None {
+        if next_trend != Trend::None {
+            let last = candles.last().unwrap();
+            let cur_time = last.time + Duration::seconds(last.duration);
             self.trend = Some(TrendWrapper {
                 trend: next_trend,
                 start: cur_time,
-                end: None,
             });
         }
     }
@@ -135,10 +113,7 @@ impl Chart {
 
         json!({
             "trend": trend.trend,
-            "start": trend.start.naive_local().time(),
-            "startTime": trend.start.timestamp(),
-            "end": trend.end.map(|t| t.naive_local().time()),
-            "endTime": trend.end.map(|t| t.timestamp())
+            "start": trend.start,
         })
     }
 }

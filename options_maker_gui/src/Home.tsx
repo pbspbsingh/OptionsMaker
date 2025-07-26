@@ -45,8 +45,8 @@ export default function Home() {
                     <ul>
                         {trends.map(({ ticker, trend }) =>
                             <li key={ticker}>
-                                <Link to={`/ticker/${ticker}`} title={`${new Date(trend.startTime * 1000)}`}>
-                                    {ticker}: {trend.start} {trend.end != null ? ` - ${trend.end}` : ''}
+                                <Link to={`/ticker/${ticker}`} title={`${new Date(trend.start)}`}>
+                                    {ticker}: {new Date(trend.start).toTimeString()}
                                 </Link>
                             </li>)}
                     </ul>
