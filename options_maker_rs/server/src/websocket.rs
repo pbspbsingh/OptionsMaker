@@ -9,8 +9,8 @@ use data_provider::provider;
 use flate2::Compression;
 use flate2::read::DeflateEncoder;
 use futures::{SinkExt, StreamExt};
+use rustc_hash::FxHashMap;
 use serde_json::{Value, json};
-use std::collections::HashMap;
 use std::io::Read;
 use std::sync::LazyLock;
 use std::sync::atomic::{AtomicUsize, Ordering};
@@ -19,8 +19,8 @@ use tracing::debug;
 
 static WS_ID: AtomicUsize = AtomicUsize::new(1);
 
-static WS_SENDERS: LazyLock<RwLock<HashMap<usize, mpsc::UnboundedSender<Value>>>> =
-    LazyLock::new(|| RwLock::new(HashMap::new()));
+static WS_SENDERS: LazyLock<RwLock<FxHashMap<usize, mpsc::UnboundedSender<Value>>>> =
+    LazyLock::new(|| RwLock::new(FxHashMap::default()));
 
 pub fn router() -> Router {
     async fn _handle_websocket(socket: WebSocket) {

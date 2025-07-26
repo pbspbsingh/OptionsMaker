@@ -1,10 +1,10 @@
 use crate::analyzer::dataframe::DataFrame;
 use crate::analyzer::trend_filter::{FilterParam, Trend, TrendFilter, bb, volume};
+use crate::analyzer::utils;
 use chrono::{DateTime, Duration, Local};
 use schwab_client::Candle;
 use serde_json::{Value, json};
-use std::collections::BTreeMap;
-use ta_lib::{momentum, overlap, ta, volatility};
+use ta_lib::volatility;
 
 pub struct Chart {
     duration: Duration,
@@ -22,10 +22,9 @@ struct TrendWrapper {
 }
 
 impl Chart {
-    pub fn new(candles: &[Candle], duration: std::time::Duration, days: usize) -> Self {
-        let duration = Duration::from_std(duration).unwrap();
+    pub fn new(candles: &[Candle], duration: Duration, days: usize) -> Self {
         let filters = vec![volume::rvol, volume::cur_time_vol, bb::band];
-        let aggregated = Self::aggregate(candles, duration);
+        let aggregated = utils::aggregate(candles, duration);
         Self {
             duration,
             days,
@@ -37,7 +36,7 @@ impl Chart {
     }
 
     pub fn update(&mut self, candles: &[Candle]) {
-        let aggregated = Self::aggregate(candles, self.duration);
+        let aggregated = utils::aggregate(candles, self.duration);
         self.dataframe = DataFrame::from_candles(&aggregated);
 
         self.compute_indicators();
@@ -49,13 +48,13 @@ impl Chart {
 
     fn compute_indicators(&mut self) {
         self.dataframe
-            .insert_column("rsi", rsi(&self.dataframe["close"]))
+            .insert_column("rsi", utils::rsi(&self.dataframe["close"]))
             .unwrap();
         self.dataframe
-            .insert_column("ma", ema(&self.dataframe["close"]))
+            .insert_column("ma", utils::ema(&self.dataframe["close"], 200))
             .unwrap();
         self.dataframe
-            .insert_column("bbw", bbw(&self.dataframe["close"]))
+            .insert_column("bbw", utils::bbw(&self.dataframe["close"]))
             .unwrap();
     }
 
@@ -141,87 +140,5 @@ impl Chart {
             "end": trend.end.map(|t| t.naive_local().time()),
             "endTime": trend.end.map(|t| t.timestamp())
         })
-    }
-
-    fn aggregate(candles: &[Candle], duration: Duration) -> Vec<Candle> {
-        let mut buckets = BTreeMap::new();
-        for candle in candles {
-            let bucket = Self::truncate_time(candle, duration);
-            let entry = buckets.entry(bucket).or_insert_with(Vec::new);
-            entry.push(candle);
-        }
-        buckets
-            .into_iter()
-            .filter_map(|(time, ohlc)| Self::aggregate_bucket(time, ohlc, duration))
-            .filter(|candle| candle.volume > 0)
-            .collect::<Vec<_>>()
-    }
-
-    fn truncate_time(candle: &Candle, duration: Duration) -> DateTime<Local> {
-        let bucket_secs = duration.num_seconds();
-        let truncated_ts = (candle.time.timestamp() / bucket_secs) * bucket_secs;
-        util::time::from_ts(truncated_ts)
-    }
-
-    fn aggregate_bucket(
-        time: DateTime<Local>,
-        bucket_data: Vec<&Candle>,
-        duration: Duration,
-    ) -> Option<Candle> {
-        let open = bucket_data.first()?.open;
-        let close = bucket_data.last()?.close;
-        let high = bucket_data
-            .iter()
-            .map(|ohlc| ohlc.high)
-            .fold(f64::NEG_INFINITY, f64::max);
-        let low = bucket_data
-            .iter()
-            .map(|ohlc| ohlc.low)
-            .fold(f64::INFINITY, f64::min);
-        let volume = bucket_data.iter().map(|ohlc| ohlc.volume).sum();
-        Some(Candle {
-            time,
-            open,
-            high,
-            low,
-            close,
-            volume,
-            duration: duration.num_seconds(),
-        })
-    }
-}
-
-fn rsi(close: &[f64]) -> Vec<f64> {
-    let rsi = momentum::rsi(close, 14).expect("Failed to compute rsi");
-    fill_na_gap(rsi, close.len())
-}
-
-fn ema(close: &[f64]) -> Vec<f64> {
-    let ema = overlap::ema(close, 200).expect("Failed to compute ema");
-    fill_na_gap(ema, close.len())
-}
-
-fn bbw(close: &[f64]) -> Vec<f64> {
-    let (upper, avg, lower) = overlap::bbands(close, 20, 2.0, 2.0, ta::TA_MAType_TA_MAType_WMA)
-        .expect("Failed to compute bbw");
-    let bbw = upper
-        .into_iter()
-        .zip(avg)
-        .zip(lower)
-        .map(|((u, m), l)| 100.0 * (u - l) / m)
-        .collect::<Vec<_>>();
-    fill_na_gap(bbw, close.len())
-}
-
-fn fill_na_gap(mut values: Vec<f64>, expected_len: usize) -> Vec<f64> {
-    if values.len() < expected_len {
-        std::iter::repeat_n(f64::NAN, expected_len - values.len())
-            .chain(values)
-            .collect()
-    } else if values.len() > expected_len {
-        values.truncate(expected_len);
-        values
-    } else {
-        values
     }
 }

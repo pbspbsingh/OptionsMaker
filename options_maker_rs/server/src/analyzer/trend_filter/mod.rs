@@ -10,6 +10,8 @@ use serde::Serialize;
 pub enum Trend {
     None,
     Strong,
+    Bullish,
+    Bearish,
 }
 
 pub struct FilterParam<'a> {

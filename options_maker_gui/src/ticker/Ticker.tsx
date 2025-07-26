@@ -110,6 +110,7 @@ export default function Ticker() {
                             "SL": wipOrder.stopLoss
                         } : {}}
                         onLimitUpdate={onStopLimitUpdate}
+                        priceLevels={symbol.priceLevels}
                     />
                     <pre className="messages">
                         {chart.messages.join('\n')}
@@ -117,7 +118,7 @@ export default function Ticker() {
                 </div>))}
             </section>
             <section className="metainfo">
-                <p>Last Updated: {new Date(symbol.last_updated * 1000).toLocaleString()}</p>
+                <p>Last Updated: {new Date(symbol.lastUpdated * 1000).toLocaleString()}</p>
             </section>
         </div>
     );

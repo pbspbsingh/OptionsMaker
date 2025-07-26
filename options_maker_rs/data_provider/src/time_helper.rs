@@ -1,3 +1,4 @@
+use app_config::APP_CONFIG;
 use chrono::{DateTime, Local, NaiveDate, NaiveDateTime, Weekday};
 use chrono::{Datelike, TimeDelta};
 use schwab_client::Candle;
@@ -34,7 +35,11 @@ fn is_working_day(date: NaiveDate, candles: &[Candle]) -> bool {
     if matches!(date.weekday(), Weekday::Sat | Weekday::Sun) {
         return false;
     }
-
+    let min_working_hours = TimeDelta::hours(if APP_CONFIG.trade_config.use_extended_hour {
+        8
+    } else {
+        6
+    });
     let first = candles
         .iter()
         .find(|candle| candle.time.date_naive() == date);
@@ -42,7 +47,7 @@ fn is_working_day(date: NaiveDate, candles: &[Candle]) -> bool {
         .iter()
         .rfind(|candle| candle.time.date_naive() == date);
     match (first, last) {
-        (Some(first), Some(last)) => (last.time - first.time) >= TimeDelta::hours(6),
+        (Some(first), Some(last)) => (last.time - first.time) >= min_working_hours,
         _ => false,
     }
 }

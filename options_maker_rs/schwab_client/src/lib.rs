@@ -163,3 +163,13 @@ pub struct FundamentalData {
     #[serde(rename = "vol3MonthAvg")]
     pub vol_3_month_avg: Option<f64>,
 }
+
+impl Candle {
+    pub fn is_red(&self) -> bool {
+        self.open >= self.close
+    }
+
+    pub fn is_green(&self) -> bool {
+        !self.is_red()
+    }
+}

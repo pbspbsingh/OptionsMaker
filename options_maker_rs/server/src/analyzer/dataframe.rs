@@ -1,17 +1,18 @@
-use chrono::{Duration, NaiveDate, NaiveDateTime};
+use app_config::APP_CONFIG;
+use chrono::{Datelike, NaiveDate, NaiveDateTime, TimeDelta, Weekday};
 use itertools::Itertools;
 use schwab_client::Candle;
 use serde_json::{Map, Value};
-use std::collections::HashMap;
-use std::fmt::Display;
-use std::fmt::Write;
+use std::fmt::{Debug, Display, Write};
+
+use rustc_hash::FxHashMap;
 use std::ops::Index;
 
 #[derive(Clone)]
 pub struct DataFrame {
     index: Vec<NaiveDateTime>,
     col_names: Vec<String>,
-    columns: HashMap<String, Vec<f64>>,
+    columns: FxHashMap<String, Vec<f64>>,
 }
 
 impl DataFrame {
@@ -47,7 +48,7 @@ impl DataFrame {
         let mut df = Self {
             index,
             col_names: Vec::new(),
-            columns: HashMap::new(),
+            columns: FxHashMap::default(),
         };
         df.insert_column("open", opens).unwrap();
         df.insert_column("low", lows).unwrap();
@@ -90,11 +91,16 @@ impl DataFrame {
     }
 
     pub fn trim_working_days(&self, days: usize) -> Self {
+        let min_working_hours = TimeDelta::hours(if APP_CONFIG.trade_config.use_extended_hour {
+            8
+        } else {
+            6
+        });
         let work_days = self
             .index
             .iter()
             .fold(
-                HashMap::<NaiveDate, (NaiveDateTime, NaiveDateTime)>::new(),
+                FxHashMap::<NaiveDate, (NaiveDateTime, NaiveDateTime)>::default(),
                 |mut map, &idx| {
                     let entry = map.entry(idx.date()).or_insert_with(|| (idx, idx));
                     entry.0 = entry.0.min(idx);
@@ -103,8 +109,9 @@ impl DataFrame {
                 },
             )
             .into_iter()
+            .filter(|(key, ..)| key.weekday() != Weekday::Sat && key.weekday() != Weekday::Sun)
             .map(|(key, (min, max))| (key, max - min))
-            .filter(|(_, diff)| *diff >= Duration::hours(6))
+            .filter(|(_, diff)| *diff >= min_working_hours)
             .map(|(key, _)| key)
             .sorted()
             .collect::<Vec<_>>();
@@ -114,13 +121,17 @@ impl DataFrame {
 
         let days_to_keep = &work_days[(work_days.len() - days)..];
         let min_day = days_to_keep.first().unwrap();
+        self.filtered(|_, idx| idx.date() >= *min_day)
+    }
+
+    pub fn filtered(&self, filter: impl Fn(usize, NaiveDateTime) -> bool) -> Self {
         let mut df = DataFrame::from_cols(&self.col_names);
         self.index
             .iter()
             .enumerate()
-            .filter(|(_, idx)| idx.date() >= *min_day)
-            .for_each(|(i, idx)| {
-                df.index.push(*idx);
+            .filter(|(i, idx)| filter(*i, **idx))
+            .for_each(|(i, &idx)| {
+                df.index.push(idx);
                 for col in &self.col_names {
                     let column = df.columns.get_mut(col).unwrap();
                     column.push(self.columns[col][i]);
@@ -203,37 +214,47 @@ where
     }
 }
 
-impl Display for DataFrame {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        writeln!(f, "Shape: {:?}", self.shape())?;
-        let len = self.shape().0;
-        if len == 0 {
-            return Ok(());
-        }
-
-        let headers = self.column_names();
-        let widths = self.column_widths();
-        let separator_line = create_separator(&widths);
-
-        writeln!(f, "{separator_line}")?;
-        writeln!(f, "{}", create_header_row(&headers, &widths))?;
-        writeln!(f, "{separator_line}")?;
-        if len <= 10 {
-            for i in 0..self.index.len() {
-                writeln!(f, "{}", self.create_row(i, &widths))?;
-            }
-        } else {
-            for i in 0..5 {
-                writeln!(f, "{}", self.create_row(i, &widths))?;
-            }
-            writeln!(f, "{}", create_ellipsis_row(&widths))?;
-            for i in (len - 5)..len {
-                writeln!(f, "{}", self.create_row(i, &widths))?;
-            }
-        }
-
-        writeln!(f, "{separator_line}")
+impl Debug for DataFrame {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        print(self, f, true)
     }
+}
+
+impl Display for DataFrame {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        print(self, f, false)
+    }
+}
+
+fn print(df: &DataFrame, f: &mut std::fmt::Formatter, debug: bool) -> std::fmt::Result {
+    writeln!(f, "Shape: {:?}", df.shape())?;
+    let len = df.shape().0;
+    if len == 0 {
+        return Ok(());
+    }
+
+    let headers = df.column_names();
+    let widths = df.column_widths();
+    let separator_line = create_separator(&widths);
+
+    writeln!(f, "{separator_line}")?;
+    writeln!(f, "{}", create_header_row(&headers, &widths))?;
+    writeln!(f, "{separator_line}")?;
+    if debug || len <= 10 {
+        for i in 0..df.index.len() {
+            writeln!(f, "{}", df.create_row(i, &widths))?;
+        }
+    } else {
+        for i in 0..5 {
+            writeln!(f, "{}", df.create_row(i, &widths))?;
+        }
+        writeln!(f, "{}", create_ellipsis_row(&widths))?;
+        for i in (len - 5)..len {
+            writeln!(f, "{}", df.create_row(i, &widths))?;
+        }
+    }
+
+    writeln!(f, "{separator_line}")
 }
 
 fn create_separator(widths: &[usize]) -> String {

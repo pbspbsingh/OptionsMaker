@@ -1,15 +1,18 @@
 mod chart;
 mod controller;
 mod dataframe;
+mod support_resistance;
 mod trend_filter;
+mod utils;
 
 use crate::analyzer::controller::Controller;
 use crate::websocket;
 use app_config::APP_CONFIG;
 use data_provider::provider;
+use rustc_hash::FxHashMap;
 use schwab_client::Instrument;
 use schwab_client::streaming_client::StreamResponse;
-use std::collections::HashMap;
+
 use std::sync::OnceLock;
 use std::time::Instant;
 use tokio::sync::mpsc;
@@ -33,7 +36,8 @@ pub async fn start_analysis() -> anyhow::Result<()> {
     let instruments = persist::ticker::fetch_instruments().await?;
     info!("Starting analysis of {} symbols", instruments.len());
 
-    let mut controllers = HashMap::new();
+    let use_tick_data = APP_CONFIG.trade_config.use_tick_data;
+    let mut controllers = FxHashMap::default();
     for ins in instruments {
         debug!("Processing instrument: {}", ins.symbol);
         let Ok(controller) = init_controller(&ins).await else {
@@ -42,7 +46,10 @@ pub async fn start_analysis() -> anyhow::Result<()> {
         controllers.insert(ins.symbol, controller);
     }
     provider().sub_charts(controllers.keys().cloned().collect());
-    provider().sub_tick(controllers.keys().cloned().collect());
+    if use_tick_data {
+        info!("Subscribing to tick data for all the equities");
+        provider().sub_tick(controllers.keys().cloned().collect());
+    }
 
     tokio::spawn(async move {
         loop {
@@ -83,14 +90,18 @@ pub async fn start_analysis() -> anyhow::Result<()> {
                             info!("Resetting the controller of {symbol}");
                             ctr.publish();
                             controllers.insert(symbol.to_owned(), ctr);
-                            provider().sub_charts(vec![symbol.clone()]);
-                            provider().sub_tick(vec![symbol]);
+                            if use_tick_data {
+                                provider().sub_tick(vec![symbol.clone()]);
+                            }
+                            provider().sub_charts(vec![symbol]);
                         }
                         AnalyzerCmd::Remove(symbol) => {
                             if let Some(_ctr) = controllers.remove(&symbol) {
                                 info!("Removing controller for {symbol}");
-                                provider().unsub_charts(vec![symbol.clone()]);
-                                provider().unsub_tick(vec![symbol]);
+                                if use_tick_data {
+                                    provider().unsub_tick(vec![symbol.clone()]);
+                                }
+                                provider().unsub_charts(vec![symbol]);
                             } else {
                                 warn!("Can't remove {symbol}, it's already not present");
                             }

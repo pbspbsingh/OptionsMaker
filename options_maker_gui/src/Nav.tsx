@@ -80,8 +80,9 @@ export default function Nav(): JSX.Element {
             if (resp.status != 200) {
                 throw new Error(`Failed to add new ticker: ${await resp.text()}`)
             }
-            showSnackbar(`Added ${newTicker} successfully!`, { action: snackbarAction });
+            // showSnackbar(`Added ${newTicker} successfully!`, { action: snackbarAction });
             setNewTicker('');
+            console.log(`Added ${newTicker} successfully!`);
         } catch (e) {
             console.warn(e);
             if (e instanceof Error) {

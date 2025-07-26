@@ -1,7 +1,7 @@
+use chrono::{Duration, NaiveTime};
 use serde::de::Error;
 use serde::{Deserialize, Deserializer};
 use std::sync::LazyLock;
-use std::time::Duration;
 
 pub static APP_CONFIG: LazyLock<AppConfig> = LazyLock::new(|| {
     let config_file = std::env::args()
@@ -49,6 +49,11 @@ pub struct TradeConfig {
     pub timeframes: Vec<Duration>,
     pub tf_days: Vec<u64>,
     pub look_back_days: u64,
+    pub use_tick_data: bool,
+    #[serde(deserialize_with = "parse_trading_hours")]
+    pub trading_hours: (NaiveTime, NaiveTime),
+    pub sr_threshold_perc: f64,
+    pub sr_threshold_max: f64,
     pub rvol_multiplier: f64,
     pub bbw_ratio: f64,
 }
@@ -70,18 +75,15 @@ fn parse_duration(input: &str) -> Result<Duration, Box<dyn std::error::Error>> {
     if input.ends_with("m") && !input.ends_with("min") {
         // Handle "1M" format (minutes)
         let num_str = &input[..input.len() - 1];
-        let minutes: u64 = num_str.parse()?;
-        Ok(Duration::from_secs(minutes * 60))
+        Ok(Duration::minutes(num_str.parse()?))
     } else if input.ends_with("min") {
         // Handle "15Min" format
         let num_str = &input[..input.len() - 3];
-        let minutes: u64 = num_str.parse()?;
-        Ok(Duration::from_secs(minutes * 60))
+        Ok(Duration::minutes(num_str.parse()?))
     } else if input.ends_with("hour") {
         // Handle "1Hour" format
         let num_str = &input[..input.len() - 4];
-        let hours: u64 = num_str.parse()?;
-        Ok(Duration::from_secs(hours * 3600))
+        Ok(Duration::hours(num_str.parse()?))
     } else if input.ends_with("day") {
         // Handle "1Day" or "2Days" format
         let num_str = if input.ends_with("days") {
@@ -89,9 +91,23 @@ fn parse_duration(input: &str) -> Result<Duration, Box<dyn std::error::Error>> {
         } else {
             &input[..input.len() - 3]
         };
-        let days: u64 = num_str.parse()?;
-        Ok(Duration::from_secs(days * 24 * 3600))
+        Ok(Duration::days(num_str.parse()?))
     } else {
         Err(format!("Unsupported time format: {input}").into())
     }
+}
+
+fn parse_trading_hours<'de, D>(deserializer: D) -> Result<(NaiveTime, NaiveTime), D::Error>
+where
+    D: Deserializer<'de>,
+{
+    let times: Vec<String> = Deserialize::deserialize(deserializer)?;
+    if times.len() != 2 {
+        return Err(Error::custom(format!("Invalid trading hours: {times:?}")));
+    }
+    let mut times = times.into_iter().map(|s| {
+        NaiveTime::parse_from_str(s.as_str(), "%H:%M")
+            .map_err(|e| Error::custom(format!("Failed to parse '{s}' as NaiveTime: {e}")))
+    });
+    Ok((times.next().unwrap()?, times.next().unwrap()?))
 }

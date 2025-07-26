@@ -45,8 +45,7 @@ export type Price = {
 
 export type PriceLevel = {
     price: number,
-    weight: number,
-    at: number,
+    at?: string,
 };
 
 export type Divergence = {
@@ -78,9 +77,9 @@ export type Chart = {
 
 export type Symbol = {
     symbol: string,
-    last_updated: number,
+    lastUpdated: number,
     atr?: number,
-    price_levels: PriceLevel[],
+    priceLevels: PriceLevel[],
     charts: Chart[],
 }
 

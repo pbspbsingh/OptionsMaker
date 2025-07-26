@@ -33,5 +33,6 @@ tower-http = { version = "0.6", features = ["fs"] }
 persist = { path = "../persist" }
 serde = { workspace = true }
 serde_json = { workspace = true }
+rustc-hash = "2.1"
 
 ta_lib = { path = "../ta_lib" }
