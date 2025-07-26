@@ -53,9 +53,22 @@
             background-position: center right;
 
             &.active {
-                font-weight: bold;
                 text-decoration: underline;
                 background: var(--pico-icon-valid) no-repeat right 30px center;
+
+
+            }
+
+            &.bullish {
+                color: green;
+            }
+
+            &.bearish {
+                color: red;
+            }
+
+            &.imminent {
+                font-weight: bold;
             }
 
             &:hover {

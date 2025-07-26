@@ -13,7 +13,7 @@ pub struct PriceRejection {
     pub is_imminent: bool,
 }
 
-pub fn check_support(candles: &[Candle], support: f64) -> Option<PriceRejection> {
+pub fn check_support(candles: &[Candle], support: f64, atr: f64) -> Option<PriceRejection> {
     let len = candles.len();
     if len <= 4 {
         return None;
@@ -23,7 +23,11 @@ pub fn check_support(candles: &[Candle], support: f64) -> Option<PriceRejection>
     let (lower_limit, upper_limit) = (support - band, support + band);
 
     let (last, second_last) = (&candles[len - 1], &candles[len - 2]);
-    if !(last.is_green() && second_last.is_green() || last.close > second_last.close) {
+    if !(last.is_green()
+        && last.close >= support
+        && last.body_size() > (atr * 0.6)
+        && (second_last.is_doji() || second_last.is_green()))
+    {
         return None;
     }
 
@@ -40,7 +44,6 @@ pub fn check_support(candles: &[Candle], support: f64) -> Option<PriceRejection>
             break;
         }
     }
-
     let low = low?;
     if !(lower_limit <= candles[low].low && candles[low].low <= upper_limit) {
         return None;
@@ -57,7 +60,8 @@ pub fn check_support(candles: &[Candle], support: f64) -> Option<PriceRejection>
         }
         if highs[i - 1] < highs[i]
             && highs[i] > highs[i + 1]
-            && highs[i] >= upper_limit
+            // && highs[i] >= upper_limit
+            && highs[i] > support
             && red_bar_count >= 2
         {
             high = Some(i);
@@ -84,13 +88,17 @@ pub fn check_support(candles: &[Candle], support: f64) -> Option<PriceRejection>
     Some(PriceRejection {
         trend: Trend::Bullish,
         price_level: support,
-        rejected_at: candles[low].clone(),
-        arriving_from: candles[high].clone(),
+        rejected_at: candles[low],
+        arriving_from: candles[high],
         is_imminent: green_vol > red_vol,
     })
 }
 
-pub fn check_resistance(_candles: &[Candle], _resistance: f64) -> Option<PriceRejection> {
+pub fn check_resistance(
+    _candles: &[Candle],
+    _resistance: f64,
+    _atr: f64,
+) -> Option<PriceRejection> {
     // reverse the code of `check_support`
     None
 }

@@ -95,10 +95,10 @@ pub fn check_trend(candles: &[Candle]) -> Option<Trend> {
         )
     }
 
-    let four_hours = aggregate(&candles, Duration::hours(4));
+    let four_hours = aggregate(candles, Duration::hours(4));
     let mut four_hour_ema = ema(four_hours, 100).into_iter().rev();
 
-    let one_hours = aggregate(&candles, Duration::hours(1));
+    let one_hours = aggregate(candles, Duration::hours(1));
     let mut one_hours_ema = ema(one_hours, 200).into_iter().rev();
 
     let last = candles.last()?;

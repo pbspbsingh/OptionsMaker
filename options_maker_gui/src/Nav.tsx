@@ -9,7 +9,7 @@ import {
 } from "react";
 import {
     AppStateContext,
-    type Symbol
+    type Symbol,
 } from "./State";
 
 import { NavLink } from "react-router";
@@ -17,7 +17,6 @@ import { Connected, NotConnected } from "./icons";
 import { useSnackbar, type SnackbarKey } from "notistack";
 
 import "./Nav.scss";
-import { toChartDate } from "./utils";
 
 export default function Nav(): JSX.Element {
     const { connected, account, symbols } = useContext(AppStateContext);
@@ -130,9 +129,10 @@ export default function Nav(): JSX.Element {
                 <ul className="tickers">
                     {tickers.map(symbol => (
                         <li key={symbol}>
-                            <NavLink to={`/ticker/${symbol}`}>
-                                <span className="symbol">{symbol}</span> | ${symbols[symbol].atr?.toFixed(2)}
-                                <Divergence symbol={symbols[symbol]} />
+                            <NavLink to={`/ticker/${symbol}`} className={navStyle(symbols[symbol])}>
+                                <span className="symbol">{symbol}</span>&nbsp;
+                                | ${lastPrice(symbols[symbol]).toFixed(2)}&nbsp;
+                                | ${symbols[symbol].atr?.toFixed(2)}
                             </NavLink>
                         </li>
                     ))}
@@ -171,16 +171,22 @@ export default function Nav(): JSX.Element {
     );
 }
 
-const Divergence = ({ symbol }: { symbol: Symbol }) => {
-    const divs = Object.values(symbol.charts).flatMap(chart => chart.divergences)
-    if (divs.length === 0) {
-        return null;
+
+const navStyle = (symbol: Symbol): string => {
+    if (symbol.rejection.ended) {
+        return '';
     }
-    divs.sort((a, b) => b.end - a.end);
-    const div = divs[0];
-    return (<> |&nbsp;
-        <span className={div.div_type.toLowerCase()}>
-            {toChartDate(div.end).toLocaleTimeString()}
-        </span>
-    </>);
+    const isImminent = symbol.rejection.is_imminent ? 'imminent' : '';
+    return `${symbol.rejection.trend.toLowerCase()} ${isImminent}`;
+};
+
+const lastPrice = (symbol: Symbol): number => {
+    if (symbol.charts.length === 0) {
+        return -1;
+    }
+    const prices = symbol.charts[0].prices;
+    if (prices.length === 0) {
+        return -1;
+    }
+    return prices[prices.length - 1].close;
 };

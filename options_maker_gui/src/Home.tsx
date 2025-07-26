@@ -1,23 +1,41 @@
 import { useContext } from "react";
-import { AppStateContext, type Divergence } from "./State";
+import { AppStateContext } from "./State";
 import { Link } from "react-router";
-import { getTrends, toChartDate } from "./utils";
+import { getSRInfo, getTrends } from "./utils";
 
 export default function Home() {
     const { symbols } = useContext(AppStateContext);
 
-    const divergences = Object.values(symbols).map(symbol => {
-        const divs = Object.values(symbol.charts).flatMap(chart => chart.divergences);
-        if (divs.length === 0) return null;
-
-        divs.sort((a, b) => b.end - a.end);
-        return [symbol.symbol, divs[0]] as [string, Divergence];
-    }).filter(div => div != null);
-    divergences.sort(([_n1, d1], [_n2, d2]) => d2.end - d1.end);
-
+    const srs = getSRInfo(symbols);
     const trendsList = getTrends(symbols);
 
     return (<section className="grid">
+        <article>
+            <header>
+                <h5>Support/Resistance</h5>
+            </header>
+            <h6>Live</h6>
+            <ul>
+                {srs.filter(({ rejection }) => !rejection.ended).map(({ ticker, rejection }) => (
+                    <li key={ticker}>
+                        <Link to={`/ticker/${ticker}`} className={rejection.trend.toLowerCase()}>
+                            {ticker}: {rejection.trend}, found at: {new Date(rejection.found_at).toLocaleString()}
+                        </Link>
+                    </li>
+                ))}
+            </ul>
+            <hr />
+            <h6>Past</h6>
+            <ul>
+                {srs.filter(({ rejection }) => rejection.ended).map(({ ticker, rejection }) => (
+                    <li key={ticker}>
+                        <Link to={`/ticker/${ticker}`} className={rejection.trend.toLowerCase()}>
+                            {ticker}: {rejection.trend} at: {new Date(rejection.found_at).toLocaleString()}
+                        </Link>
+                    </li>
+                ))}
+            </ul>
+        </article>
         <article>
             <header>
                 <h6>Trending</h6>
@@ -35,18 +53,6 @@ export default function Home() {
                     {idx != trendsList.length - 1 && <hr />}
                 </div>)}
         </article>
-        <article>
-            <header>
-                <h6>Divergences</h6>
-            </header>
-            <ul>
-                {divergences.map(([symbol, div]) => (<li key={symbol}>
-                    <Link to={`/ticker/${symbol}`} className={div.div_type.toLowerCase()}>
-                        {symbol} - {toChartDate(div.end).toLocaleTimeString()}
 
-                    </Link>
-                </li>))}
-            </ul>
-        </article>
     </section>);
 }

@@ -45,7 +45,15 @@ export type Price = {
 
 export type PriceLevel = {
     price: number,
-    at?: string,
+    at: string,
+    is_active: boolean,
+};
+
+export type Rejection = {
+    is_imminent: boolean,
+    trend: 'None' | 'Bearish' | 'Bullish',
+    found_at: string,
+    ended: boolean,
 };
 
 export type Divergence = {
@@ -80,6 +88,7 @@ export type Symbol = {
     lastUpdated: number,
     atr?: number,
     priceLevels: PriceLevel[],
+    rejection: Rejection,
     charts: Chart[],
 }
 

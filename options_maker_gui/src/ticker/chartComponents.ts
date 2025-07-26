@@ -190,14 +190,14 @@ export function usePriceLevels(candlesRef: React.RefObject<ISeriesApi<"Candlesti
             for (const priceLine of prevPriceLines) {
                 candles.removePriceLine(priceLine);
             }
-
+            
             const priceLines = [];
             for (const priceLevel of priceLevels) {
                 const priceLine = candles.createPriceLine({
                     price: priceLevel.price,
                     color: 'yellow',
                     axisLabelVisible: false,
-                    lineStyle: 3,
+                    lineStyle: priceLevel.is_active ? 0 :3,
                     lineWidth: 1,
                 });
                 priceLines.push(priceLine);

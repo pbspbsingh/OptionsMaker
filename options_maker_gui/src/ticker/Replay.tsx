@@ -37,9 +37,9 @@ export function Replay({ ticker }: { ticker: string }) {
             <input title="Playback speed for Replay"
                 type="range"
                 value={mode.speed}
-                step={50}
+                step={10}
                 min={50}
-                max={5000}
+                max={2000}
                 onChange={e => onReplayUpdate({ ...mode, speed: Number(e.target.value) })} />
             <button title={`Reset ${ticker} candles for replay mode`}
                 onClick={() => fetch(`/api/ticker/reload?ticker=${ticker}`)}>

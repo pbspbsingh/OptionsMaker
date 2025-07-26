@@ -13,7 +13,7 @@ use schwab_client::{Candle, Quote};
 use serde::Serialize;
 use serde_json::json;
 use std::cmp::Ordering;
-use tracing::debug;
+use tracing::info;
 
 const TICK_PUBLISH_DELAY: Duration = Duration::seconds(10);
 
@@ -25,7 +25,7 @@ pub struct Controller {
     tick_published: DateTime<Local>,
     price_levels: Vec<PriceLevel>,
     rejection: Option<PriceRejection>,
-    rejection_msg: RejectionMsg,
+    rejection_msg: RejectionMessage,
 }
 
 #[derive(Copy, Clone, Debug, Serialize)]
@@ -36,11 +36,11 @@ struct PriceLevel {
 }
 
 #[derive(Clone, Debug, Serialize)]
-struct RejectionMsg {
-    message: String,
-    timestamp: i64,
+struct RejectionMessage {
     trend: Trend,
     is_imminent: bool,
+    found_at: DateTime<Local>,
+    ended: bool,
 }
 
 impl Controller {
@@ -61,11 +61,11 @@ impl Controller {
             tick_published: util::time::now(),
             price_levels: Vec::new(),
             rejection: None,
-            rejection_msg: RejectionMsg {
-                message: String::default(),
-                timestamp: 0,
+            rejection_msg: RejectionMessage {
                 trend: Trend::None,
+                found_at: DateTime::default(),
                 is_imminent: false,
+                ended: true,
             },
         }
     }
@@ -123,7 +123,7 @@ impl Controller {
             .candles
             .last()
             .map(|&Candle { time, duration, .. }| (time + Duration::seconds(duration)).timestamp());
-        let atr = self.charts.last().map(Chart::atr);
+        let atr = self.charts.last().and_then(Chart::atr);
         let charts = self.charts.iter().map(Chart::json).collect::<Vec<_>>();
         let data = json!({
             "symbol": self.symbol,
@@ -204,10 +204,12 @@ impl Controller {
     }
 
     fn find_support_resistance(&mut self) -> Option<()> {
-        let prev_rej = self.rejection.take();
         self.price_levels.iter_mut().for_each(|level| {
             level.is_active = false;
         });
+        self.rejection_msg.is_imminent = false;
+        self.rejection_msg.ended = true;
+        let prev_rej = self.rejection.take();
 
         let last = self.candles.last()?;
         let cur_time = last.time + Duration::seconds(last.duration);
@@ -235,38 +237,37 @@ impl Controller {
                     cmp_f64((last.close - l1.price).abs(), (last.close - l2.price).abs())
                 })
                 .next()?;
+            let atr = self.charts.first().and_then(Chart::atr)?;
             let rejection = if trend == Trend::Bullish {
-                check_support(&candles, price_level.price)
+                check_support(&candles, price_level.price, atr)
             } else {
-                check_resistance(&candles, price_level.price)
+                check_resistance(&candles, price_level.price, atr)
             }?;
-            debug!(
-                "{}: {:?} support at price level {:.2}, low at: {}, imminent: {}",
+
+            price_level.is_active = true;
+            let timestamp = if let Some(prev_rej) = prev_rej {
+                if prev_rej.rejected_at.time == rejection.rejected_at.time {
+                    self.rejection_msg.found_at
+                } else {
+                    cur_time
+                }
+            } else {
+                cur_time
+            };
+            info!(
+                "{}: {:?} support at price level {:.2}, low at: {}, imminent: {}, found at: {}",
                 self.symbol,
                 rejection.trend,
                 rejection.price_level,
                 rejection.rejected_at.time.time(),
                 rejection.is_imminent,
+                timestamp.naive_local(),
             );
-            price_level.is_active = true;
-            let message = format!(
-                "{}:{:?} Is Imminent: {} ",
-                self.symbol, rejection.trend, rejection.is_imminent
-            );
-            let timestamp = if let Some(prev_rej) = prev_rej {
-                if prev_rej.rejected_at.time == rejection.rejected_at.time {
-                    self.rejection_msg.timestamp
-                } else {
-                    cur_time.timestamp()
-                }
-            } else {
-                cur_time.timestamp()
-            };
-            self.rejection_msg = RejectionMsg {
-                message,
-                timestamp,
+            self.rejection_msg = RejectionMessage {
                 trend: rejection.trend,
                 is_imminent: rejection.is_imminent,
+                found_at: timestamp,
+                ended: false,
             };
             self.rejection = Some(rejection);
         }

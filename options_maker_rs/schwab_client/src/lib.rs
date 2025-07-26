@@ -3,8 +3,11 @@ use serde::{Deserialize, Serialize};
 use tokio_tungstenite::tungstenite;
 
 mod auth;
+mod candle;
 pub mod schwab_client;
 pub mod streaming_client;
+
+pub use candle::Candle;
 
 pub type SchwabResult<T> = Result<T, SchwabError>;
 
@@ -52,17 +55,6 @@ pub struct Balances {
     pub cash_balance: f64,
     #[serde(default)]
     pub total_cash: f64,
-}
-
-#[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct Candle {
-    pub open: f64,
-    pub low: f64,
-    pub high: f64,
-    pub close: f64,
-    pub volume: u64,
-    pub time: DateTime<Local>,
-    pub duration: i64,
 }
 
 #[derive(Clone, Debug, Default, Serialize, Deserialize)]
@@ -162,14 +154,4 @@ pub struct FundamentalData {
     pub vol_10_day_avg: Option<f64>,
     #[serde(rename = "vol3MonthAvg")]
     pub vol_3_month_avg: Option<f64>,
-}
-
-impl Candle {
-    pub fn is_red(&self) -> bool {
-        self.open >= self.close
-    }
-
-    pub fn is_green(&self) -> bool {
-        !self.is_red()
-    }
 }
