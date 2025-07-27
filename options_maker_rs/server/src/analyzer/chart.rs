@@ -1,6 +1,7 @@
 use crate::analyzer::dataframe::DataFrame;
 use crate::analyzer::trend_filter::{FilterParam, Trend, TrendFilter, bb, volume};
 use crate::analyzer::utils;
+use app_config::ChartConfig;
 use chrono::{DateTime, Duration, Local};
 use schwab_client::Candle;
 use serde_json::{Value, json};
@@ -9,6 +10,7 @@ use ta_lib::volatility;
 pub struct Chart {
     duration: Duration,
     days: usize,
+    ema_len: u32,
     dataframe: DataFrame,
     trend: Option<TrendWrapper>,
     filters: Vec<TrendFilter>,
@@ -21,12 +23,13 @@ struct TrendWrapper {
 }
 
 impl Chart {
-    pub fn new(candles: &[Candle], duration: Duration, days: usize) -> Self {
+    pub fn new(candles: &[Candle], cf: &ChartConfig) -> Self {
         let filters = vec![volume::rvol, volume::cur_time_vol, bb::band];
-        let aggregated = utils::aggregate(candles, duration);
+        let aggregated = utils::aggregate(candles, cf.timeframe);
         Self {
-            duration,
-            days,
+            duration: cf.timeframe,
+            days: cf.days as usize,
+            ema_len: cf.ema,
             dataframe: DataFrame::from_candles(&aggregated),
             trend: None,
             filters,
@@ -46,15 +49,13 @@ impl Chart {
     }
 
     fn compute_indicators(&mut self) {
-        self.dataframe
-            .insert_column("rsi", utils::rsi(&self.dataframe["close"]))
-            .unwrap();
-        self.dataframe
-            .insert_column("ma", utils::ema(&self.dataframe["close"], 200))
-            .unwrap();
-        self.dataframe
-            .insert_column("bbw", utils::bbw(&self.dataframe["close"]))
-            .unwrap();
+        let close = &self.dataframe["close"];
+        let rsi = utils::rsi(close);
+        let ema = utils::ema(close, self.ema_len);
+        let bbw = utils::bbw(close);
+        self.dataframe.insert_column("rsi", rsi).unwrap();
+        self.dataframe.insert_column("ma", ema).unwrap();
+        self.dataframe.insert_column("bbw", bbw).unwrap();
     }
 
     fn compute_trend(&mut self, candles: &[Candle]) {

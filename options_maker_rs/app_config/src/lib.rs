@@ -11,13 +11,6 @@ pub static APP_CONFIG: LazyLock<AppConfig> = LazyLock::new(|| {
         .unwrap_or_else(|_| panic!("Failed to read config file {config_file:?}"));
     let config = toml::from_str::<AppConfig>(&config)
         .unwrap_or_else(|e| panic!("Failed to parse as AppConfig toml: {e}\n{config}"));
-    if config.trade_config.timeframes.len() != config.trade_config.tf_days.len() {
-        panic!(
-            "Length of timeframes and tf_days must match: {} vs {}",
-            config.trade_config.timeframes.len(),
-            config.trade_config.tf_days.len()
-        );
-    }
     config
 });
 
@@ -44,10 +37,8 @@ pub struct AppConfig {
 
 #[derive(Debug, Deserialize)]
 pub struct TradeConfig {
+    pub chart_configs: Vec<ChartConfig>,
     pub use_extended_hour: bool,
-    #[serde(deserialize_with = "parse_timeframes")]
-    pub timeframes: Vec<Duration>,
-    pub tf_days: Vec<u64>,
     pub look_back_days: u64,
     pub use_tick_data: bool,
     #[serde(deserialize_with = "parse_trading_hours")]
@@ -58,16 +49,18 @@ pub struct TradeConfig {
     pub bbw_ratio: f64,
 }
 
-fn parse_timeframes<'de, D: Deserializer<'de>>(deserializer: D) -> Result<Vec<Duration>, D::Error> {
-    let duration_str: Vec<String> = Deserialize::deserialize(deserializer)?;
-    duration_str
-        .iter()
-        .map(|s| s.trim())
-        .filter(|s| !s.is_empty())
-        .map(|s| {
-            parse_duration(s).map_err(|_| Error::custom(format!("Failed to parse duration {s}")))
-        })
-        .collect()
+#[derive(Debug, Deserialize)]
+pub struct ChartConfig {
+    #[serde(deserialize_with = "parse_timeframe")]
+    pub timeframe: Duration,
+    pub days: u64,
+    pub ema: u32,
+}
+
+fn parse_timeframe<'de, D: Deserializer<'de>>(deserializer: D) -> Result<Duration, D::Error> {
+    let duration_str: String = Deserialize::deserialize(deserializer)?;
+    parse_duration(duration_str.trim())
+        .map_err(|_| Error::custom(format!("Failed to parse duration {duration_str}")))
 }
 
 fn parse_duration(input: &str) -> Result<Duration, Box<dyn std::error::Error>> {

@@ -49,10 +49,12 @@ impl DataProvider for SchwabProvider {
         }
 
         debug!("Fetching price history for {symbol} from {fetch_from}");
-        let &min_tf = APP_CONFIG
+        let min_tf = APP_CONFIG
             .trade_config
-            .timeframes
-            .first()
+            .chart_configs
+            .iter()
+            .map(|cf| cf.timeframe)
+            .next()
             .expect("Failed to get timeframes");
         let use_5min = min_tf >= Duration::minutes(5);
         let candles = self

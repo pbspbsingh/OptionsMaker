@@ -48,10 +48,9 @@ impl Controller {
     pub fn new(symbol: String, candles: Vec<Candle>) -> Self {
         let charts = APP_CONFIG
             .trade_config
-            .timeframes
+            .chart_configs
             .iter()
-            .zip(&APP_CONFIG.trade_config.tf_days)
-            .map(|(&tf, &days)| Chart::new(&candles, tf, days as usize))
+            .map(|cf| Chart::new(&candles, cf))
             .collect::<Vec<_>>();
 
         Self {

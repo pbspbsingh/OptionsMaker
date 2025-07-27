@@ -57,8 +57,8 @@ pub fn rsi(close: &[f64]) -> Vec<f64> {
     fill_na_gap(rsi, close.len())
 }
 
-pub fn ema(close: &[f64], len: i32) -> Vec<f64> {
-    let ema = overlap::ema(close, len).expect("Failed to compute ema");
+pub fn ema(close: &[f64], len: u32) -> Vec<f64> {
+    let ema = overlap::ema(close, len as i32).expect("Failed to compute ema");
     fill_na_gap(ema, close.len())
 }
 
@@ -88,7 +88,7 @@ fn fill_na_gap(mut values: Vec<f64>, expected_len: usize) -> Vec<f64> {
 }
 
 pub fn check_trend(candles: &[Candle]) -> Option<Trend> {
-    fn ema(candles: Vec<Candle>, len: i32) -> Vec<f64> {
+    fn ema(candles: Vec<Candle>, len: u32) -> Vec<f64> {
         utils::ema(
             &candles.into_iter().map(|c| c.close).collect::<Vec<_>>(),
             len,
