@@ -1,3 +1,4 @@
+#[allow(clippy::too_many_arguments)]
 pub mod momentum;
 pub mod overlap;
 pub mod ta;

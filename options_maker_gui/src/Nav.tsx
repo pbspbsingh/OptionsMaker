@@ -15,6 +15,7 @@ import {
 import { NavLink } from "react-router";
 import { Connected, NotConnected } from "./icons";
 import { useSnackbar, type SnackbarKey } from "notistack";
+import useNotifications from "./notifications";
 
 import "./Nav.scss";
 
@@ -31,6 +32,8 @@ export default function Nav(): JSX.Element {
     const [contextMenuLoc, setContextMenuLoc] = useState<{ top: number, left: number }>({ top: 0, left: 0 });
     const [showContextMenu, setShowContextMenu] = useState(false);
     const [selectedContextMenuItem, setSelectedContextMenuItem] = useState('');
+
+    useNotifications();
 
     useEffect(() => {
         const clickHandler = (e: any) => {

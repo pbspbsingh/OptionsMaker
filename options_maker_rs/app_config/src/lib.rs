@@ -9,9 +9,8 @@ pub static APP_CONFIG: LazyLock<AppConfig> = LazyLock::new(|| {
         .unwrap_or_else(|| String::from("config.toml"));
     let config = std::fs::read_to_string(&config_file)
         .unwrap_or_else(|_| panic!("Failed to read config file {config_file:?}"));
-    let config = toml::from_str::<AppConfig>(&config)
-        .unwrap_or_else(|e| panic!("Failed to parse as AppConfig toml: {e}\n{config}"));
-    config
+    toml::from_str::<AppConfig>(&config)
+        .unwrap_or_else(|e| panic!("Failed to parse as AppConfig toml: {e}\n{config}"))
 });
 
 #[derive(Debug, Deserialize)]

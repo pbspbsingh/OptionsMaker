@@ -22,7 +22,7 @@ static CMD_SENDER: OnceLock<mpsc::UnboundedSender<AnalyzerCmd>> = OnceLock::new(
 
 pub enum AnalyzerCmd {
     Publish,
-    ReInitialize(Controller),
+    ReInitialize(Box<Controller>),
     Remove(String),
 }
 
@@ -89,7 +89,7 @@ pub async fn start_analysis() -> anyhow::Result<()> {
                             let symbol = ctr.symbol().to_owned();
                             info!("Resetting the controller of {symbol}");
                             ctr.publish();
-                            controllers.insert(symbol.to_owned(), ctr);
+                            controllers.insert(symbol.to_owned(), *ctr);
                             if use_tick_data {
                                 provider().sub_tick(vec![symbol.clone()]);
                             }

@@ -135,6 +135,7 @@ pub fn check_trend(candles: &[Candle]) -> Option<Trend> {
 ///
 /// # Returns
 /// Smoothed data as Vec<f64>
+#[allow(clippy::needless_range_loop)]
 pub fn gaussian_smooth(data: &[f64], sigma: f64, kernel_size: Option<usize>) -> Vec<f64> {
     fn gaussian_kernel(sigma: f64, kernel_size: usize) -> Vec<f64> {
         let center = (kernel_size / 2) as i32;

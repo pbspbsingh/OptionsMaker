@@ -46,7 +46,7 @@ export default function Home() {
                         {trends.map(({ ticker, trend }) =>
                             <li key={ticker}>
                                 <Link to={`/ticker/${ticker}`} title={`${new Date(trend.start)}`}>
-                                    {ticker}: {new Date(trend.start).toTimeString()}
+                                    {ticker}: {new Date(trend.start).toLocaleString()}
                                 </Link>
                             </li>)}
                     </ul>

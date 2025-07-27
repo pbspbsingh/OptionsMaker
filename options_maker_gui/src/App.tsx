@@ -16,6 +16,7 @@ import './App.scss';
 
 export default function App(): JSX.Element {
     const [state, dispatcher] = useReducer(appReducer, DEFAULT_APP_STATE)
+    
     useEffect(() => {
         const websocket = new Websocket('/api/ws', data => {
             dispatcher(data);
@@ -23,6 +24,7 @@ export default function App(): JSX.Element {
         websocket.onStatusChange(status => dispatcher({ action: 'UPDATE_CONNECTION_STATUS', status }));
         return () => websocket.close();
     }, []);
+
     return (
         <AppStateContext.Provider value={state}>
             <AppReducerContext.Provider value={dispatcher}>

@@ -188,9 +188,8 @@ impl Controller {
             if !levels.is_empty() {
                 let threshold = threshold(last.close);
                 self.price_levels.push(levels[0]);
-                for i in 1..levels.len() {
+                for next in levels.into_iter().skip(1) {
                     let prev = self.price_levels.last().unwrap();
-                    let next = levels[i];
                     if (prev.price - next.price).abs() <= threshold {
                         if next.at > prev.at {
                             self.price_levels.pop();

@@ -25,7 +25,7 @@ async fn add_new_ticker(Query(symbols): Query<HashMap<String, String>>) -> AppRe
 
     persist::ticker::save_instrument(&instrument).await?;
     let controller = analyzer::init_controller(&instrument).await?;
-    analyzer::send_analyzer_cmd(AnalyzerCmd::ReInitialize(controller));
+    analyzer::send_analyzer_cmd(AnalyzerCmd::ReInitialize(controller.into()));
     Ok(())
 }
 
@@ -70,7 +70,7 @@ async fn reload_ticker(Query(symbols): Query<HashMap<String, String>>) -> AppRes
     };
 
     let controller = analyzer::init_controller(&my_ins).await?;
-    analyzer::send_analyzer_cmd(AnalyzerCmd::ReInitialize(controller));
+    analyzer::send_analyzer_cmd(AnalyzerCmd::ReInitialize(controller.into()));
 
     Ok(())
 }

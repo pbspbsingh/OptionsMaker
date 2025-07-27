@@ -62,6 +62,7 @@ pub async fn init() -> anyhow::Result<()> {
     Ok(())
 }
 
+#[allow(clippy::borrowed_box)]
 pub fn provider() -> &'static Box<dyn DataProvider + Send + Sync> {
     PROVIDER.get().unwrap()
 }
