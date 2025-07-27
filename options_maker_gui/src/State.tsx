@@ -54,6 +54,7 @@ export type Rejection = {
     trend: 'None' | 'Bearish' | 'Bullish',
     found_at: string,
     ended: boolean,
+    points: Array<[UTCTimestamp, number]>,
 };
 
 export type Divergence = {

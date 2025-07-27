@@ -111,6 +111,7 @@ export default function Ticker() {
                         } : {}}
                         onLimitUpdate={onStopLimitUpdate}
                         priceLevels={symbol.priceLevels}
+                        rejection={symbol.rejection}
                     />
                     <pre className="messages">
                         {chart.messages.join('\n')}

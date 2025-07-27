@@ -1,14 +1,19 @@
 import { useEffect, useRef } from "react";
 import {
+    createSeriesMarkers,
     LineSeries,
+    type ISeriesMarkersPluginApi,
     type IChartApi,
     type IPriceLine,
-    type ISeriesApi
+    type ISeriesApi,
+    type SeriesMarkerPrice,
+    type Time
 } from "lightweight-charts";
 import type {
     Divergence,
     Price,
-    PriceLevel
+    PriceLevel,
+    Rejection
 } from "../State";
 import { priceToMa, extractKey } from "../utils";
 import { deepEqual } from "../compare";
@@ -190,14 +195,14 @@ export function usePriceLevels(candlesRef: React.RefObject<ISeriesApi<"Candlesti
             for (const priceLine of prevPriceLines) {
                 candles.removePriceLine(priceLine);
             }
-            
+
             const priceLines = [];
             for (const priceLevel of priceLevels) {
                 const priceLine = candles.createPriceLine({
                     price: priceLevel.price,
                     color: 'yellow',
                     axisLabelVisible: false,
-                    lineStyle: priceLevel.is_active ? 0 :3,
+                    lineStyle: priceLevel.is_active ? 0 : 3,
                     lineWidth: 1,
                 });
                 priceLines.push(priceLine);
@@ -205,4 +210,56 @@ export function usePriceLevels(candlesRef: React.RefObject<ISeriesApi<"Candlesti
             priceLevelsRef.current = { chart: priceLines, data: priceLevels };
         }
     }, [candlesRef, priceLevels]);
+}
+
+
+export function useRejection(candlesRef: React.RefObject<ISeriesApi<"Candlestick"> | null>, rejection: Rejection) {
+    const seriesMarkerRef = useRef<ISeriesMarkersPluginApi<Time> | null>(null);
+    const rejectionRef = useRef<Rejection | null>(null);
+
+    useEffect(() => {
+        const candles = candlesRef.current;
+        if (candles == null) return;
+
+        seriesMarkerRef.current = createSeriesMarkers(candles, []);
+    }, [candlesRef]);
+
+    useEffect(() => {
+        const candles = candlesRef.current;
+        const seriesMarker = seriesMarkerRef.current;
+        if (candles == null || seriesMarker == null) return;
+
+        if (!deepEqual(rejection, rejectionRef.current)) {
+            const markers: SeriesMarkerPrice<Time>[] = [];
+            if (rejection.trend !== 'None' && rejection.points.length == 3) {
+                const color = rejection.ended ? 'lightgrey' : 'yellow';
+                markers.push({
+                    position: rejection.trend === 'Bullish' ? 'atPriceTop' : 'atPriceBottom',
+                    time: rejection.points[0][0],
+                    price: rejection.points[0][1],
+                    shape: rejection.trend === 'Bullish' ? 'arrowDown' : 'arrowUp',
+                    text: rejection.trend === 'Bullish' ? 'Top' : 'Bottom',
+                    color,
+                });
+                markers.push({
+                    position: rejection.trend === 'Bullish' ? 'atPriceBottom' : 'atPriceTop',
+                    time: rejection.points[1][0],
+                    price: rejection.points[1][1],
+                    shape: rejection.trend === 'Bullish' ? 'arrowUp' : 'arrowDown',
+                    text: 'Rejection',
+                    color,
+                });
+                markers.push({
+                    position: 'atPriceMiddle',
+                    time: rejection.points[2][0],
+                    price: rejection.points[2][1],
+                    shape: rejection.trend === 'Bullish' ? 'arrowDown' : 'arrowUp',
+                    text: rejection.is_imminent ? 'Enter Now' : 'Entry',
+                    color,
+                });
+            }
+            seriesMarker.setMarkers(markers);
+            rejectionRef.current = rejection;
+        }
+    }, [candlesRef, rejection]);
 }

@@ -8,8 +8,9 @@ use serde::Serialize;
 pub struct PriceRejection {
     pub trend: Trend,
     pub price_level: f64,
-    pub rejected_at: Candle,
     pub arriving_from: Candle,
+    pub rejected_at: Candle,
+    pub now: Candle,
     pub is_imminent: bool,
 }
 
@@ -88,8 +89,9 @@ pub fn check_support(candles: &[Candle], support: f64, atr: f64) -> Option<Price
     Some(PriceRejection {
         trend: Trend::Bullish,
         price_level: support,
-        rejected_at: candles[low],
         arriving_from: candles[high],
+        rejected_at: candles[low],
+        now: *last,
         is_imminent: green_vol > red_vol,
     })
 }

@@ -11,8 +11,8 @@ import {
 import { useEffect, useRef } from "react";
 import { priceToVol } from "../utils";
 
-import type { Chart, PriceLevel } from "../State";
-import { useDivergences, useMA, useBottomBar, usePriceLevels } from "./chartComponents";
+import type { Chart, PriceLevel, Rejection } from "../State";
+import { useDivergences, useMA, useBottomBar, usePriceLevels, useRejection } from "./chartComponents";
 import { useStopLimits, type StopLimits } from "./stopLimits";
 
 export interface ChartProps {
@@ -21,9 +21,10 @@ export interface ChartProps {
     onLimitUpdate: (name: string, price: number) => boolean,
     isOrderSubmitted: boolean,
     priceLevels: PriceLevel[],
+    rejection: Rejection,
 }
 
-export default function Chart({ chart, limits, isOrderSubmitted, onLimitUpdate, priceLevels }: ChartProps) {
+export default function Chart({ chart, limits, isOrderSubmitted, onLimitUpdate, priceLevels, rejection }: ChartProps) {
     const divRef = useRef<HTMLDivElement>(null);
     const chartRef = useRef<IChartApi>(null);
     const candlesRef = useRef<ISeriesApi<"Candlestick">>(null);
@@ -94,6 +95,7 @@ export default function Chart({ chart, limits, isOrderSubmitted, onLimitUpdate, 
     });
     useDivergences(chartRef, chart.divergences ?? []);
     useStopLimits(chartRef, candlesRef, limits, isOrderSubmitted, onLimitUpdate);
+    useRejection(candlesRef, rejection);
 
     return <div ref={divRef} />;
 }

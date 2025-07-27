@@ -41,6 +41,7 @@ struct RejectionMessage {
     is_imminent: bool,
     found_at: DateTime<Local>,
     ended: bool,
+    points: Vec<(i64, f64)>,
 }
 
 impl Controller {
@@ -63,9 +64,10 @@ impl Controller {
             rejection: None,
             rejection_msg: RejectionMessage {
                 trend: Trend::None,
-                found_at: DateTime::default(),
                 is_imminent: false,
+                found_at: DateTime::default(),
                 ended: true,
+                points: Vec::new(),
             },
         }
     }
@@ -109,7 +111,7 @@ impl Controller {
         }
 
         if now - self.tick_published >= TICK_PUBLISH_DELAY
-            && let Some(tick) = self.tick.clone()
+            && let Some(tick) = self.tick
         {
             self.tick_published = now;
             self.candles.push(tick);
@@ -268,11 +270,38 @@ impl Controller {
                 is_imminent: rejection.is_imminent,
                 found_at: timestamp,
                 ended: false,
+                points: create_chart_points(&rejection, timestamp),
             };
             self.rejection = Some(rejection);
         }
         Some(())
     }
+}
+
+fn create_chart_points(rejection: &PriceRejection, timestamp: DateTime<Local>) -> Vec<(i64, f64)> {
+    vec![
+        (
+            ts(rejection.arriving_from.time),
+            if rejection.trend == Trend::Bullish {
+                rejection.arriving_from.high
+            } else {
+                rejection.arriving_from.low
+            },
+        ),
+        (
+            ts(rejection.rejected_at.time),
+            if rejection.trend == Trend::Bullish {
+                rejection.rejected_at.low
+            } else {
+                rejection.rejected_at.high
+            },
+        ),
+        (ts(timestamp), rejection.now.close),
+    ]
+}
+
+fn ts(time: DateTime<Local>) -> i64 {
+    time.naive_local().and_utc().timestamp()
 }
 
 fn cmp_f64(a: f64, b: f64) -> Ordering {
