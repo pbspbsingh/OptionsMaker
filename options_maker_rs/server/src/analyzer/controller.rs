@@ -9,6 +9,7 @@ use crate::websocket;
 use app_config::APP_CONFIG;
 use chrono::{DateTime, Duration, Local, NaiveDateTime};
 use itertools::Itertools;
+use rustc_hash::FxHashSet;
 use schwab_client::{Candle, Quote};
 use serde::Serialize;
 use serde_json::json;
@@ -179,27 +180,7 @@ impl Controller {
             find_min_max(&mut levels, &data_frame.trim_working_days(5)); // High lows for week
             find_min_max(&mut levels, &data_frame.trim_working_days(20)); // High lows for month
 
-            levels.sort_by(|p1, p2| match cmp_f64(p1.price, p2.price) {
-                Ordering::Equal => p1.at.cmp(&p2.at),
-                x => x,
-            });
-
-            self.price_levels.clear();
-            if !levels.is_empty() {
-                let threshold = threshold(last.close);
-                self.price_levels.push(levels[0]);
-                for next in levels.into_iter().skip(1) {
-                    let prev = self.price_levels.last().unwrap();
-                    if (prev.price - next.price).abs() <= threshold {
-                        if next.at > prev.at {
-                            self.price_levels.pop();
-                            self.price_levels.push(next);
-                        }
-                    } else {
-                        self.price_levels.push(next);
-                    }
-                }
-            }
+            self.price_levels = remove_near_price_levels(levels, threshold(last.close))
         }
     }
 
@@ -333,5 +314,48 @@ fn find_min_max(levels: &mut Vec<PriceLevel>, df: &DataFrame) {
             price,
             is_active,
         });
+    }
+}
+
+fn remove_near_price_levels(mut levels: Vec<PriceLevel>, threshold: f64) -> Vec<PriceLevel> {
+    if APP_CONFIG.trade_config.sr_use_sorting {
+        levels.sort_by(|p1, p2| match cmp_f64(p1.price, p2.price) {
+            Ordering::Equal => p1.at.cmp(&p2.at),
+            x => x,
+        });
+
+        let mut filtered_levels = Vec::with_capacity(levels.len());
+        if !levels.is_empty() {
+            filtered_levels.push(levels[0]);
+            for next in levels.into_iter().skip(1) {
+                let prev = filtered_levels.last().unwrap();
+                if (prev.price - next.price).abs() < threshold {
+                    if next.at > prev.at {
+                        filtered_levels.pop();
+                        filtered_levels.push(next);
+                    }
+                } else {
+                    filtered_levels.push(next);
+                }
+            }
+        }
+        filtered_levels
+    } else {
+        let mut ignored = FxHashSet::default();
+        for (i, cur) in levels.iter().enumerate() {
+            if ignored.contains(&i) {
+                continue;
+            }
+            for (j, next) in levels.iter().enumerate().skip(i + 1) {
+                if (cur.price - next.price).abs() < threshold {
+                    ignored.insert(j);
+                }
+            }
+        }
+        levels
+            .into_iter()
+            .enumerate()
+            .filter_map(|(i, level)| (!ignored.contains(&i)).then_some(level))
+            .collect()
     }
 }
