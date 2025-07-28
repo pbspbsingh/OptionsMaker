@@ -2170,6 +2170,7 @@ dependencies = [
  "anyhow",
  "app_config",
  "axum",
+ "axum-server",
  "chrono",
  "data_provider",
  "flate2",

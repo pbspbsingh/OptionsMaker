@@ -24,6 +24,7 @@ pub struct AppConfig {
     pub schwab_callback_url: String,
     pub db_url: String,
     pub http_port: u16,
+    pub use_https: bool,
     pub asset_dir: Option<String>,
     #[serde(default)]
     pub disable_ws_compression: bool,
