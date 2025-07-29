@@ -96,16 +96,21 @@ pub fn check_support(candles: &[Candle], support: f64, atr: f64) -> Option<Price
     })
 }
 
-pub fn check_resistance(
-    _candles: &[Candle],
-    _resistance: f64,
-    _atr: f64,
-) -> Option<PriceRejection> {
-    // reverse the code of `check_support`
-    None
+pub fn check_resistance(candles: &[Candle], resistance: f64, atr: f64) -> Option<PriceRejection> {
+    let neg_candles = candles.iter().map(Candle::invert).collect::<Vec<_>>();
+    let support = check_support(&neg_candles, -resistance, atr)?;
+    Some(PriceRejection {
+        trend: Trend::Bearish,
+        price_level: resistance,
+        arriving_from: support.arriving_from.invert(),
+        rejected_at: support.rejected_at.invert(),
+        now: support.now.invert(),
+        is_imminent: support.is_imminent,
+    })
 }
 
 pub fn threshold(price: f64) -> f64 {
+    let price = price.abs();
     let config = &APP_CONFIG.trade_config;
     let threshold = price * config.sr_threshold_perc / 100.0;
     threshold.min(config.sr_threshold_max)

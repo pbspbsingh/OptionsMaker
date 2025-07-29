@@ -4,23 +4,23 @@ use crate::{DataProvider, ReplayInfo};
 use app_config::APP_CONFIG;
 use async_trait::async_trait;
 use chrono::{DateTime, Local};
+use rustc_hash::FxHashMap;
 use schwab_client::streaming_client::StreamResponse;
 use schwab_client::{Candle, Instrument};
-use std::collections::HashMap;
 use std::sync::{Arc, RwLock};
 use std::time::{Duration, Instant};
 use tokio::sync::{Mutex, mpsc};
 use tracing::info;
 
 pub struct ReplayProvider {
-    replay_data: Arc<Mutex<HashMap<String, Vec<Candle>>>>,
+    replay_data: Arc<Mutex<FxHashMap<String, Vec<Candle>>>>,
     replay_info: Arc<Mutex<ReplayInfo>>,
     senders: Arc<RwLock<Vec<mpsc::UnboundedSender<StreamResponse>>>>,
 }
 
 impl ReplayProvider {
     pub async fn init() -> anyhow::Result<Self> {
-        let replay_data = Arc::new(Mutex::new(HashMap::<String, Vec<Candle>>::new()));
+        let replay_data = Arc::new(Mutex::new(FxHashMap::<String, Vec<Candle>>::default()));
         let replay_info = Arc::new(Mutex::new(ReplayInfo {
             playing: false,
             speed: 500,

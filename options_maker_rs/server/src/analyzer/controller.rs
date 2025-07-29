@@ -218,6 +218,7 @@ impl Controller {
                     cmp_f64((last.close - l1.price).abs(), (last.close - l2.price).abs())
                 })
                 .next()?;
+            price_level.is_active = true;
             let atr = self.charts.first().and_then(Chart::atr)?;
             let rejection = if trend == Trend::Bullish {
                 check_support(&candles, price_level.price, atr)
@@ -225,7 +226,6 @@ impl Controller {
                 check_resistance(&candles, price_level.price, atr)
             }?;
 
-            price_level.is_active = true;
             let timestamp = if let Some(prev_rej) = prev_rej {
                 if prev_rej.rejected_at.time == rejection.rejected_at.time {
                     self.rejection_msg.found_at

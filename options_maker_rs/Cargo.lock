@@ -548,6 +548,7 @@ dependencies = [
  "async-trait",
  "chrono",
  "persist",
+ "rustc-hash 2.1.1",
  "schwab_client",
  "serde",
  "tokio",

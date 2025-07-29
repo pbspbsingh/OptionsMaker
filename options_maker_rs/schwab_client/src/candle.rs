@@ -43,4 +43,15 @@ impl Candle {
     pub fn body_size(&self) -> f64 {
         (self.close - self.open).abs()
     }
+
+    pub fn invert(&self) -> Self {
+        let candle = self.clone();
+        Self {
+            open: -candle.open,
+            close: -candle.close,
+            low: -candle.high,
+            high: -candle.low,
+            ..candle
+        }
+    }
 }
