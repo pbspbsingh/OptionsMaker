@@ -9,6 +9,7 @@ use crate::websocket;
 use app_config::APP_CONFIG;
 use chrono::{DateTime, Duration, Local, NaiveDateTime};
 use itertools::Itertools;
+use rand::{Rng, rng};
 use rustc_hash::FxHashSet;
 use schwab_client::{Candle, Quote};
 use serde::Serialize;
@@ -16,14 +17,13 @@ use serde_json::json;
 use std::cmp::Ordering;
 use tracing::info;
 
-const TICK_PUBLISH_DELAY: Duration = Duration::seconds(10);
-
 pub struct Controller {
     symbol: String,
     candles: Vec<Candle>,
     charts: Vec<Chart>,
     tick: Option<Candle>,
     tick_published: DateTime<Local>,
+    tick_publish_delay: Duration,
     price_levels: Vec<PriceLevel>,
     rejection: Option<PriceRejection>,
     rejection_msg: RejectionMessage,
@@ -53,13 +53,13 @@ impl Controller {
             .iter()
             .map(|cf| Chart::new(&candles, cf))
             .collect::<Vec<_>>();
-
         Self {
             symbol,
             candles,
             charts,
             tick: None,
             tick_published: util::time::now(),
+            tick_publish_delay: Duration::milliseconds(rng().random_range(5000..10_000)),
             price_levels: Vec::new(),
             rejection: None,
             rejection_msg: RejectionMessage {
@@ -110,7 +110,7 @@ impl Controller {
             });
         }
 
-        if now - self.tick_published >= TICK_PUBLISH_DELAY
+        if now - self.tick_published >= self.tick_publish_delay
             && let Some(tick) = self.tick
         {
             self.tick_published = now;

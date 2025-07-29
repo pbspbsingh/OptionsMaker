@@ -2,8 +2,8 @@ use crate::schwab_client::AccessToken;
 use crate::{Candle, Quote, SchwabResult};
 use futures::{SinkExt, StreamExt};
 
+use rustc_hash::{FxHashMap, FxHashSet};
 use serde_json::Value;
-use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::Duration;
@@ -98,8 +98,8 @@ impl StreamingClient {
                 main_client_alive.load(Ordering::Relaxed)
                     && streaming_client_alive.load(Ordering::Relaxed)
             };
-            let mut subscribers = HashMap::new();
-            let mut subscribed_symbols = HashMap::<Subscription, HashSet<String>>::new();
+            let mut subscribers = FxHashMap::default();
+            let mut subscribed_symbols = FxHashMap::<Subscription, FxHashSet<String>>::default();
             'main: while clients_alive() {
                 for (&sub, symbols) in &subscribed_symbols {
                     if symbols.is_empty() {
@@ -235,6 +235,6 @@ impl Drop for StreamingClient {
     }
 }
 
-fn subs_empty<K, S>(map: &HashMap<K, HashSet<S>>) -> bool {
+fn subs_empty<K, S>(map: &FxHashMap<K, FxHashSet<S>>) -> bool {
     map.values().map(|v| v.len()).sum::<usize>() == 0
 }

@@ -3,9 +3,9 @@ use crate::streaming_client::{StreamResponse, Subscription};
 use crate::{API_URL, Candle, Quote, SchwabError, SchwabResult};
 use futures::{SinkExt, StreamExt};
 use itertools::Itertools;
+use rustc_hash::FxHashMap;
 use serde::Deserialize;
 use serde_json::{Value, json};
-use std::collections::HashMap;
 use std::sync::Arc;
 use std::sync::atomic::{AtomicU32, Ordering};
 use std::time::Instant;
@@ -30,7 +30,7 @@ struct StreamerInfo {
 
 pub struct Streamer {
     streamer_info: StreamerInfo,
-    quote_cache: HashMap<String, Quote>,
+    quote_cache: FxHashMap<String, Quote>,
 }
 
 impl Streamer {
@@ -86,7 +86,7 @@ impl Streamer {
                 };
                 info!("Finished Websocket connection in {:?}", start.elapsed());
                 return if code == 0 {
-                    let quote_cache = HashMap::new();
+                    let quote_cache = FxHashMap::default();
                     Ok((
                         Self {
                             streamer_info,
@@ -232,7 +232,7 @@ impl Subscription {
     fn parse_response(
         &self,
         value: &Value,
-        cache: &mut HashMap<String, Quote>,
+        cache: &mut FxHashMap<String, Quote>,
     ) -> Option<StreamResponse> {
         let response = match self {
             Subscription::EquityChart => {

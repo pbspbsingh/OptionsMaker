@@ -10,7 +10,7 @@ use axum_server::tls_rustls::RustlsConfig;
 use std::net::{Ipv4Addr, SocketAddr};
 use std::path::Path;
 use std::time::Instant;
-use time::macros::format_description;
+use time::macros::format_description as time_format;
 use tokio::net::TcpListener;
 use tower_http::services::{ServeDir, ServeFile};
 use tracing::{info, warn};
@@ -29,7 +29,7 @@ async fn main() -> anyhow::Result<()> {
 
     tracing_subscriber::fmt()
         .with_env_filter(EnvFilter::builder().parse_lossy(&APP_CONFIG.rust_log))
-        .with_timer(LocalTime::new(format_description!(
+        .with_timer(LocalTime::new(time_format!(
             "[year]-[month]-[day] [hour]:[minute]:[second]"
         )))
         .with_level(true)
