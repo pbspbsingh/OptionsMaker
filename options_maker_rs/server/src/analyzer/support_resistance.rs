@@ -16,21 +16,24 @@ pub struct PriceRejection {
 
 pub fn check_support(candles: &[Candle], support: f64, atr: f64) -> Option<PriceRejection> {
     let len = candles.len();
-    if len <= 4 {
+    let mut last_green = None;
+    for i in (1..len).rev() {
+        if candles[i].is_green() || candles[i].is_doji() {
+            last_green = Some(i);
+        } else {
+            break;
+        }
+    }
+    let last_green = last_green?;
+    if !(candles[len - 1].is_green()
+        && candles[len - 1].close >= support
+        && (candles[len - 1].close - candles[last_green].open).abs() > atr)
+    {
         return None;
     }
 
     let band = threshold(support) / 2.0;
     let (lower_limit, upper_limit) = (support - band, support + band);
-
-    let (last, second_last) = (&candles[len - 1], &candles[len - 2]);
-    if !(last.is_green()
-        && last.close >= support
-        && last.body_size() > (atr * 0.6)
-        && (second_last.is_doji() || second_last.is_green()))
-    {
-        return None;
-    }
 
     let lows = smooth(candles.iter().map(|candle| candle.low));
     let highs = smooth(candles.iter().map(|candle| candle.high));
@@ -61,9 +64,8 @@ pub fn check_support(candles: &[Candle], support: f64, atr: f64) -> Option<Price
         }
         if highs[i - 1] < highs[i]
             && highs[i] > highs[i + 1]
-            // && highs[i] >= upper_limit
             && highs[i] > support
-            && red_bar_count >= 2
+            && red_bar_count >= 1
         {
             high = Some(i);
             break;
@@ -72,17 +74,11 @@ pub fn check_support(candles: &[Candle], support: f64, atr: f64) -> Option<Price
     let high = high?;
 
     let (mut red_vol, mut green_vol) = (0, 0);
-    green_vol += last.volume;
-    green_vol += second_last.volume;
-
-    red_bar_count = 0;
     for i in (high..len).rev() {
         if candles[i].is_red() {
             red_vol += candles[i].volume;
-            red_bar_count += 1;
-            if red_bar_count >= 2 {
-                break;
-            }
+        } else if candles[i].is_green() {
+            green_vol += candles[i].volume;
         }
     }
 
@@ -91,7 +87,7 @@ pub fn check_support(candles: &[Candle], support: f64, atr: f64) -> Option<Price
         price_level: support,
         arriving_from: candles[high],
         rejected_at: candles[low],
-        now: *last,
+        now: candles[len - 1],
         is_imminent: green_vol > red_vol,
     })
 }

@@ -53,13 +53,14 @@ impl Controller {
             .iter()
             .map(|cf| Chart::new(&candles, cf))
             .collect::<Vec<_>>();
+        let tick_publish_delay_ms = rng().random_range(5_000..15_000);
         Self {
             symbol,
             candles,
             charts,
             tick: None,
             tick_published: util::time::now(),
-            tick_publish_delay: Duration::milliseconds(rng().random_range(5000..10_000)),
+            tick_publish_delay: Duration::milliseconds(tick_publish_delay_ms),
             price_levels: Vec::new(),
             rejection: None,
             rejection_msg: RejectionMessage {
@@ -207,11 +208,10 @@ impl Controller {
                 .price_levels
                 .iter_mut()
                 .filter(|level| {
-                    let band = threshold(level.price) / 2.0;
                     if trend == Trend::Bullish {
-                        (level.price - band) <= last.close
+                        level.price <= last.close
                     } else {
-                        (level.price + band) >= last.close
+                        level.price >= last.close
                     }
                 })
                 .sorted_by(|l1, l2| {
@@ -258,10 +258,11 @@ impl Controller {
 }
 
 fn create_chart_points(rejection: &PriceRejection, timestamp: DateTime<Local>) -> Vec<(i64, f64)> {
+    let is_bullish = rejection.trend == Trend::Bullish;
     vec![
         (
             ts(rejection.arriving_from.time),
-            if rejection.trend == Trend::Bullish {
+            if is_bullish {
                 rejection.arriving_from.high
             } else {
                 rejection.arriving_from.low
@@ -269,7 +270,7 @@ fn create_chart_points(rejection: &PriceRejection, timestamp: DateTime<Local>) -
         ),
         (
             ts(rejection.rejected_at.time),
-            if rejection.trend == Trend::Bullish {
+            if is_bullish {
                 rejection.rejected_at.low
             } else {
                 rejection.rejected_at.high

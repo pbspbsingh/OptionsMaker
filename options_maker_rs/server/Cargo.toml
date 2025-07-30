@@ -18,7 +18,7 @@ util = { path = "../util" }
 tracing-subscriber = { version = "0", features = ["env-filter", "local-time"] }
 tracing = { workspace = true }
 mimalloc = "0.1"
-flate2 = "1.0"
+flate2 = { version = "1.0", default-features = false }
 itertools = { workspace = true }
 rand = { version = "0.9", default-features = false }
 rustc-hash = { workspace = true }
