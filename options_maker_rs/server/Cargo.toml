@@ -15,7 +15,7 @@ rustls = "0.23"
 time = { version = "0.3", features = ["macros"] }
 chrono = { version = "0.4" }
 util = { path = "../util" }
-tracing-subscriber = { version = "0", features = ["env-filter", "local-time"] }
+tracing-subscriber = { version = "0.3", features = ["env-filter", "local-time"] }
 tracing = { workspace = true }
 mimalloc = "0.1"
 flate2 = { version = "1.0", default-features = false }

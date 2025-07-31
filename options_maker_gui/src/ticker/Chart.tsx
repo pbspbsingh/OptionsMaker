@@ -87,12 +87,6 @@ export default function Chart({ chart, limits, isOrderSubmitted, onLimitUpdate, 
         bottomIdx: 1,
         bracket: chart.rsiBracket
     });
-    useBottomBar({
-        chartRef,
-        prices: chart.prices,
-        name: "bbw",
-        bottomIdx: 2,
-    });
     useDivergences(chartRef, chart.divergences ?? []);
     useStopLimits(chartRef, candlesRef, limits, isOrderSubmitted, onLimitUpdate);
     useRejection(candlesRef, rejection);

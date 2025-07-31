@@ -47,7 +47,7 @@ export function useBottomBar({ chartRef, prices, name, bottomIdx, bracket, color
                 bottomIdx,
             );
             bottomLineRef.current.setData(prices.map(price => extractKey(price, name)));
-            chart.panes()[0].setHeight(400);
+            chart.panes()[bottomIdx].setHeight(120);
         }
         return () => {
             // rsiBracketsLinesRef.current.lines.forEach(line => rsiLineRef.current?.removePriceLine(line));

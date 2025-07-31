@@ -3,7 +3,6 @@ use crate::analyzer::dataframe::DataFrame;
 use crate::analyzer::support_resistance::{
     PriceRejection, check_resistance, check_support, threshold,
 };
-use crate::analyzer::trend_filter::Trend;
 use crate::analyzer::utils;
 use crate::websocket;
 use app_config::APP_CONFIG;
@@ -15,7 +14,7 @@ use schwab_client::{Candle, Quote};
 use serde::Serialize;
 use serde_json::json;
 use std::cmp::Ordering;
-use tracing::info;
+use tracing::debug;
 
 pub struct Controller {
     symbol: String,
@@ -27,6 +26,13 @@ pub struct Controller {
     price_levels: Vec<PriceLevel>,
     rejection: Option<PriceRejection>,
     rejection_msg: RejectionMessage,
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq, Serialize)]
+pub enum Trend {
+    None,
+    Bullish,
+    Bearish,
 }
 
 #[derive(Copy, Clone, Debug, Serialize)]
@@ -194,6 +200,11 @@ impl Controller {
         let prev_rej = self.rejection.take();
 
         let last = self.candles.last()?;
+        if last.time.date_naive() != self.rejection_msg.found_at.date_naive() {
+            self.rejection_msg.trend = Trend::None;
+            self.rejection_msg.points.clear();
+        }
+
         let cur_time = last.time + Duration::seconds(last.duration);
         let (th_start, th_end) = APP_CONFIG.trade_config.trading_hours;
         if cur_time.time() < th_start || cur_time.time() > th_end {
@@ -235,7 +246,7 @@ impl Controller {
             } else {
                 cur_time
             };
-            info!(
+            debug!(
                 "{}: {:?} support at price level {:.2}, low at: {}, imminent: {}, found at: {}",
                 self.symbol,
                 rejection.trend,

@@ -1,4 +1,4 @@
-use crate::analyzer::trend_filter::Trend;
+use crate::analyzer::controller::Trend;
 use crate::analyzer::utils;
 use app_config::APP_CONFIG;
 use schwab_client::Candle;

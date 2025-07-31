@@ -46,8 +46,6 @@ pub struct TradeConfig {
     pub sr_use_sorting: bool,
     pub sr_threshold_perc: f64,
     pub sr_threshold_max: f64,
-    pub rvol_multiplier: f64,
-    pub bbw_ratio: f64,
 }
 
 #[derive(Debug, Deserialize)]

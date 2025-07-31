@@ -113,9 +113,9 @@ export default function Ticker() {
                         priceLevels={symbol.priceLevels}
                         rejection={symbol.rejection}
                     />
-                    <pre className="messages">
+                    {chart.messages.length > 0 && <pre className="messages">
                         {chart.messages.join('\n')}
-                    </pre>
+                    </pre>}
                 </div>))}
             </section>
             <section className="metainfo">

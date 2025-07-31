@@ -2,7 +2,7 @@ mod chart;
 mod controller;
 mod dataframe;
 mod support_resistance;
-mod trend_filter;
+mod trend_processor;
 mod utils;
 
 use crate::analyzer::controller::Controller;

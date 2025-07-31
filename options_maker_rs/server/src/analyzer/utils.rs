@@ -1,9 +1,9 @@
-use crate::analyzer::trend_filter::Trend;
+use crate::analyzer::controller::Trend;
 use crate::analyzer::utils;
 use chrono::{DateTime, Duration, Local};
 use schwab_client::Candle;
 use std::collections::BTreeMap;
-use ta_lib::{momentum, overlap, ta};
+use ta_lib::{momentum, overlap};
 
 pub fn aggregate(candles: &[Candle], duration: Duration) -> Vec<Candle> {
     let mut buckets = BTreeMap::new();
@@ -60,18 +60,6 @@ pub fn rsi(close: &[f64]) -> Vec<f64> {
 pub fn ema(close: &[f64], len: u32) -> Vec<f64> {
     let ema = overlap::ema(close, len as i32).expect("Failed to compute ema");
     fill_na_gap(ema, close.len())
-}
-
-pub fn bbw(close: &[f64]) -> Vec<f64> {
-    let (upper, avg, lower) = overlap::bbands(close, 20, 2.0, 2.0, ta::TA_MAType_TA_MAType_WMA)
-        .expect("Failed to compute bbw");
-    let bbw = upper
-        .into_iter()
-        .zip(avg)
-        .zip(lower)
-        .map(|((u, m), l)| 100.0 * (u - l) / m)
-        .collect::<Vec<_>>();
-    fill_na_gap(bbw, close.len())
 }
 
 fn fill_na_gap(mut values: Vec<f64>, expected_len: usize) -> Vec<f64> {
