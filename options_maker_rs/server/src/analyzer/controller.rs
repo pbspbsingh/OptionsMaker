@@ -23,6 +23,7 @@ pub struct Controller {
     tick: Option<Candle>,
     tick_published: DateTime<Local>,
     tick_publish_delay: Duration,
+    price_levels_overrode: bool,
     price_levels: Vec<PriceLevel>,
     rejection: Option<PriceRejection>,
     rejection_msg: RejectionMessage,
@@ -36,7 +37,7 @@ pub enum Trend {
 }
 
 #[derive(Copy, Clone, Debug, Serialize)]
-struct PriceLevel {
+pub struct PriceLevel {
     price: f64,
     is_active: bool,
     at: NaiveDateTime,
@@ -51,8 +52,19 @@ struct RejectionMessage {
     points: Vec<(i64, f64)>,
 }
 
+impl PriceLevel {
+    pub fn new(price: f64, at: NaiveDateTime) -> Self {
+        let is_active = false;
+        Self {
+            price,
+            is_active,
+            at,
+        }
+    }
+}
+
 impl Controller {
-    pub fn new(symbol: String, candles: Vec<Candle>) -> Self {
+    pub fn new(symbol: String, candles: Vec<Candle>, price_levels: Vec<PriceLevel>) -> Self {
         let charts = APP_CONFIG
             .trade_config
             .chart_configs
@@ -67,7 +79,8 @@ impl Controller {
             tick: None,
             tick_published: util::time::now(),
             tick_publish_delay: Duration::milliseconds(tick_publish_delay_ms),
-            price_levels: Vec::new(),
+            price_levels_overrode: !price_levels.is_empty(),
+            price_levels,
             rejection: None,
             rejection_msg: RejectionMessage {
                 trend: Trend::None,
@@ -150,7 +163,9 @@ impl Controller {
             chart.update(&self.candles);
         }
 
-        self.update_price_levels();
+        if !self.price_levels_overrode {
+            self.update_price_levels();
+        }
         self.find_support_resistance();
 
         if publish {
@@ -300,7 +315,6 @@ fn cmp_f64(a: f64, b: f64) -> Ordering {
 }
 
 fn find_min_max(levels: &mut Vec<PriceLevel>, df: &DataFrame) {
-    let is_active = false;
     if let Some((at, price)) = df
         .index()
         .iter()
@@ -308,11 +322,7 @@ fn find_min_max(levels: &mut Vec<PriceLevel>, df: &DataFrame) {
         .map(|(i, &idx)| (idx, df["low"][i]))
         .min_by(|(_, l1), (_, l2)| cmp_f64(*l1, *l2))
     {
-        levels.push(PriceLevel {
-            at,
-            price,
-            is_active,
-        });
+        levels.push(PriceLevel::new(price, at));
     }
     if let Some((at, price)) = df
         .index()
@@ -321,11 +331,7 @@ fn find_min_max(levels: &mut Vec<PriceLevel>, df: &DataFrame) {
         .map(|(i, &idx)| (idx, df["high"][i]))
         .max_by(|(_, l1), (_, l2)| cmp_f64(*l1, *l2))
     {
-        levels.push(PriceLevel {
-            at,
-            price,
-            is_active,
-        });
+        levels.push(PriceLevel::new(price, at));
     }
 }
 

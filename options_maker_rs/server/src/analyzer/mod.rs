@@ -5,7 +5,7 @@ mod support_resistance;
 mod trend_processor;
 mod utils;
 
-use crate::analyzer::controller::Controller;
+use crate::analyzer::controller::{Controller, PriceLevel};
 use crate::websocket;
 use app_config::APP_CONFIG;
 use data_provider::provider;
@@ -132,8 +132,19 @@ pub async fn init_controller(instrument: &Instrument) -> anyhow::Result<Controll
             instrument.symbol
         ));
     }
-
-    let mut controller = Controller::new(instrument.symbol.clone(), base_candles);
+    let price_levels = persist::price_level::fetch_price_levels(&instrument.symbol)
+        .await?
+        .into_iter()
+        .map(|(price, at)| PriceLevel::new(price, at))
+        .collect::<Vec<_>>();
+    if !price_levels.is_empty() {
+        info!(
+            "Using {} override price levels for {}",
+            price_levels.len(),
+            instrument.symbol,
+        );
+    }
+    let mut controller = Controller::new(instrument.symbol.clone(), base_candles, price_levels);
     for candle in update_candles {
         controller.on_new_candle(candle, false);
     }

@@ -6,6 +6,7 @@ use axum::extract::Query;
 use axum::routing::{delete, get, post, put};
 use axum::{Json, Router};
 use data_provider::{ReplayInfo, provider};
+use serde::Deserialize;
 use std::collections::HashMap;
 use tracing::{debug, info};
 
@@ -15,6 +16,8 @@ pub fn router() -> Router {
         .route("/remove", delete(remove_ticker))
         .route("/replay_info", post(update_replay_info))
         .route("/reload", get(reload_ticker))
+        .route("/reset_levels", get(reset_levels))
+        .route("/update_price_levels", post(override_price_levels))
 }
 
 async fn add_new_ticker(Query(symbols): Query<HashMap<String, String>>) -> AppResult<()> {
@@ -61,17 +64,54 @@ async fn reload_ticker(Query(symbols): Query<HashMap<String, String>>) -> AppRes
     }
 
     let symbol = get_ticker(symbols)?;
-    info!("Reloading ticker: {symbol}");
-    let instruments = persist::ticker::fetch_instruments().await?;
-    let Some(my_ins) = instruments.into_iter().find(|ins| symbol == ins.symbol) else {
-        return Err(AppError::Generic(format!(
-            "No instrument found for {symbol:?}"
-        )));
-    };
+    reset_ticker(&symbol).await?;
+    Ok(())
+}
 
+async fn reset_levels(Query(symbols): Query<HashMap<String, String>>) -> AppResult<()> {
+    let symbol = get_ticker(symbols)?;
+
+    info!("Clearing the predefined price levels of {symbol}");
+    persist::price_level::delete_price_levels(&symbol).await?;
+    reset_ticker(&symbol).await?;
+
+    Ok(())
+}
+
+#[derive(Deserialize)]
+struct ResetPriceLevels {
+    symbol: String,
+    new_levels: String,
+}
+
+async fn override_price_levels(Json(levels): Json<ResetPriceLevels>) -> AppResult<()> {
+    info!("Overwriting price levels for {:?}", &levels.symbol);
+
+    let new_levels = levels
+        .new_levels
+        .split(',')
+        .map(str::trim)
+        .map(|s| s.trim_start_matches('$'))
+        .filter(|s| !s.is_empty())
+        .map(|s| {
+            s.parse::<f64>()
+                .map_err(|_| AppError::Generic(format!("Failed to parse {s:?} into float")))
+        })
+        .collect::<Result<Vec<_>, _>>()?;
+    persist::price_level::save_price_levels(&levels.symbol, &new_levels).await?;
+    reset_ticker(&levels.symbol).await?;
+    Ok(())
+}
+
+async fn reset_ticker(symbol: &str) -> Result<(), AppError> {
+    info!("Resetting ticker: {symbol}");
+    let instruments = persist::ticker::fetch_instruments().await?;
+    let my_ins = instruments
+        .into_iter()
+        .find(|ins| symbol == ins.symbol)
+        .ok_or_else(|| AppError::Generic(format!("No instrument found for {symbol:?}")))?;
     let controller = analyzer::init_controller(&my_ins).await?;
     analyzer::send_analyzer_cmd(AnalyzerCmd::ReInitialize(controller.into()));
-
     Ok(())
 }
 
