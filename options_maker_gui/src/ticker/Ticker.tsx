@@ -13,6 +13,7 @@ import { useLastPrice } from "../utils";
 
 import './Ticker.scss';
 import { Replay } from "./Replay";
+import { PriceLevelUpdate } from "./PriceLevelUpdate";
 
 export default function Ticker() {
     const { ticker = "JUNK" } = useParams();
@@ -121,6 +122,7 @@ export default function Ticker() {
             <section className="metainfo">
                 <p>Last Updated: {new Date(symbol.lastUpdated * 1000).toLocaleString()}</p>
             </section>
+            <PriceLevelUpdate />
         </div>
     );
 }

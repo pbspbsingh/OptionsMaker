@@ -141,4 +141,26 @@
             }
         }
     }
+
+    .price-level-update {
+        margin-top: 1rem;
+        display: flex;
+        align-items: center;
+        gap: 1rem;
+        font-size: 0.8rem;
+        --pico-form-element-spacing-vertical: 0.3rem;
+
+        &>* {
+            margin: 0;
+        }
+
+        input[type=text] {
+            width: auto;
+            flex: 1;
+        }
+
+        button {
+            padding: 0.2rem 0.8rem;
+        }
+    }
 }

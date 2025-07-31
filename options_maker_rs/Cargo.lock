@@ -1620,6 +1620,7 @@ version = "0.1.0"
 dependencies = [
  "app_config",
  "futures",
+ "itertools 0.14.0",
  "schwab_client",
  "sqlx",
  "util",
