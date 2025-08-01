@@ -8,23 +8,27 @@ import {
     HistogramSeries,
     CrosshairMode,
 } from "lightweight-charts";
+
 import { useEffect, useRef } from "react";
 import { priceToVol } from "../utils";
 
 import type { Chart, PriceLevel, Rejection } from "../State";
-import { useDivergences, useMA, useBottomBar, usePriceLevels, useRejection } from "./chartComponents";
-import { useStopLimits, type StopLimits } from "./stopLimits";
+
+import {
+    useDivergences,
+    useMA,
+    useBottomBar,
+    usePriceLevels,
+    useRejection,
+} from "./chartComponents";
 
 export interface ChartProps {
     chart: Chart,
-    limits: StopLimits,
-    onLimitUpdate: (name: string, price: number) => boolean,
-    isOrderSubmitted: boolean,
     priceLevels: PriceLevel[],
     rejection: Rejection,
 }
 
-export default function Chart({ chart, limits, isOrderSubmitted, onLimitUpdate, priceLevels, rejection }: ChartProps) {
+export default function Chart({ chart, priceLevels, rejection }: ChartProps) {
     const divRef = useRef<HTMLDivElement>(null);
     const chartRef = useRef<IChartApi>(null);
     const candlesRef = useRef<ISeriesApi<"Candlestick">>(null);
@@ -88,7 +92,6 @@ export default function Chart({ chart, limits, isOrderSubmitted, onLimitUpdate, 
         bracket: chart.rsiBracket
     });
     useDivergences(chartRef, chart.divergences ?? []);
-    useStopLimits(chartRef, candlesRef, limits, isOrderSubmitted, onLimitUpdate);
     useRejection(candlesRef, rejection);
 
     return <div ref={divRef} />;
