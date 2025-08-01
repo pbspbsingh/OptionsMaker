@@ -15,11 +15,11 @@ use std::io::Read;
 use std::sync::LazyLock;
 use std::sync::atomic::{AtomicUsize, Ordering};
 use tokio::sync::{RwLock, mpsc};
-use tracing::debug;
+use tracing::{debug, warn};
 
 static WS_ID: AtomicUsize = AtomicUsize::new(1);
 
-static WS_SENDERS: LazyLock<RwLock<FxHashMap<usize, mpsc::UnboundedSender<Value>>>> =
+static WS_SENDERS: LazyLock<RwLock<FxHashMap<usize, mpsc::Sender<Value>>>> =
     LazyLock::new(|| RwLock::new(FxHashMap::default()));
 
 pub fn router() -> Router {
@@ -39,7 +39,7 @@ async fn handle_websocket(socket: WebSocket) -> anyhow::Result<()> {
     let ws_id = WS_ID.fetch_add(1, Ordering::Relaxed);
     debug!("Got a websocket connection with id {ws_id}");
 
-    let (sender, mut receiver) = mpsc::unbounded_channel::<Value>();
+    let (sender, mut receiver) = mpsc::channel::<Value>(128);
     WS_SENDERS.write().await.insert(ws_id, sender);
 
     let (mut ws_writer, mut ws_reader) = socket.split();
@@ -76,6 +76,7 @@ async fn handle_websocket(socket: WebSocket) -> anyhow::Result<()> {
                     break;
                 }
             }
+            else => break,
         }
     }
     WS_SENDERS.write().await.remove(&ws_id);
@@ -87,10 +88,21 @@ pub fn publish(action: impl AsRef<str>, message: impl serde::Serialize) {
         "action": action.as_ref(),
         "data": message,
     });
+
     tokio::spawn(async move {
-        WS_SENDERS.read().await.values().for_each(|sender| {
-            sender.send(payload.clone()).ok();
-        })
+        let mut failed_ws = Vec::new();
+        WS_SENDERS.read().await.iter().for_each(|(id, sender)| {
+            if sender.try_send(payload.clone()).is_err() {
+                warn!("Failed to publish websocket message to {id}");
+                failed_ws.push(*id);
+            }
+        });
+        if !failed_ws.is_empty() {
+            let mut senders = WS_SENDERS.write().await;
+            for id in failed_ws {
+                senders.remove(&id);
+            }
+        }
     });
 }
 
@@ -109,5 +121,31 @@ fn to_message(value: Value) -> Message {
         compress(payload.as_bytes())
             .map(Message::binary)
             .unwrap_or_else(|_| Message::text(payload))
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use std::time::Duration;
+
+    #[tokio::test]
+    async fn test_tokio_select() {
+        let (sender, mut receiver) = tokio::sync::mpsc::channel::<String>(10);
+        let handle = tokio::spawn(async move {
+            loop {
+                tokio::select! {
+                    Some(res) = receiver.recv() => {
+                        println!("Got response from sender: {:?}", res);
+                    }
+                }
+            }
+        });
+        tokio::time::sleep(Duration::from_millis(200)).await;
+        sender.try_send(String::from("hello")).unwrap();
+        tokio::time::sleep(Duration::from_millis(200)).await;
+        sender.try_send(String::from("World")).unwrap();
+        drop(sender);
+
+        handle.await.ok();
     }
 }
