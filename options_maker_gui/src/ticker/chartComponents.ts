@@ -12,7 +12,6 @@ import {
 import type {
     Divergence,
     Price,
-    PriceLevel,
     Rejection
 } from "../State";
 import { priceToMa, extractKey } from "../utils";
@@ -50,7 +49,6 @@ export function useBottomBar({ chartRef, prices, name, bottomIdx, bracket, color
             chart.panes()[bottomIdx].setHeight(120);
         }
         return () => {
-            // rsiBracketsLinesRef.current.lines.forEach(line => rsiLineRef.current?.removePriceLine(line));
             bottomBracketLinesRef.current = { lines: [], data: [] };
             bottomLineRef.current = null;
         };
@@ -176,42 +174,6 @@ export function useDivergences(chartRef: React.RefObject<IChartApi | null>, dive
         }
     }, [chartRef, divergences]);
 }
-
-export function usePriceLevels(candlesRef: React.RefObject<ISeriesApi<"Candlestick"> | null>, priceLevels: PriceLevel[]) {
-    const priceLevelsRef = useRef<{ chart: IPriceLine[], data: PriceLevel[] }>({ chart: [], data: [] });
-
-    useEffect(() => {
-        return () => {
-            priceLevelsRef.current = { chart: [], data: [] };
-        };
-    }, [candlesRef]);
-
-    useEffect(() => {
-        const candles = candlesRef.current;
-        if (candles == null) return;
-
-        const { chart: prevPriceLines, data: prevPriceLevels } = priceLevelsRef.current;
-        if (!deepEqual(priceLevels, prevPriceLevels)) {
-            for (const priceLine of prevPriceLines) {
-                candles.removePriceLine(priceLine);
-            }
-
-            const priceLines = [];
-            for (const priceLevel of priceLevels) {
-                const priceLine = candles.createPriceLine({
-                    price: priceLevel.price,
-                    color: 'yellow',
-                    axisLabelVisible: false,
-                    lineStyle: priceLevel.is_active ? 0 : 3,
-                    lineWidth: 1,
-                });
-                priceLines.push(priceLine);
-            }
-            priceLevelsRef.current = { chart: priceLines, data: priceLevels };
-        }
-    }, [candlesRef, priceLevels]);
-}
-
 
 export function useRejection(candlesRef: React.RefObject<ISeriesApi<"Candlestick"> | null>, rejection: Rejection) {
     const seriesMarkerRef = useRef<ISeriesMarkersPluginApi<Time> | null>(null);

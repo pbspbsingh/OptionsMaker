@@ -18,17 +18,19 @@ import {
     useDivergences,
     useMA,
     useBottomBar,
-    usePriceLevels,
     useRejection,
 } from "./chartComponents";
+import { usePriceLevels } from "./priceLineComponents";
+import type { UpdateHandler as PriceLevelUpdateHandler } from "./PriceLineDragPlugin";
 
 export interface ChartProps {
     chart: Chart,
     priceLevels: PriceLevel[],
+    onPriceLevelUpdate: PriceLevelUpdateHandler,
     rejection: Rejection,
 }
 
-export default function Chart({ chart, priceLevels, rejection }: ChartProps) {
+export default function Chart({ chart, priceLevels, onPriceLevelUpdate, rejection }: ChartProps) {
     const divRef = useRef<HTMLDivElement>(null);
     const chartRef = useRef<IChartApi>(null);
     const candlesRef = useRef<ISeriesApi<"Candlestick">>(null);
@@ -82,7 +84,6 @@ export default function Chart({ chart, priceLevels, rejection }: ChartProps) {
         }
     }, [chartRef, chart.prices]);
 
-    usePriceLevels(candlesRef, priceLevels);
     useMA(chartRef, chart.prices);
     useBottomBar({
         chartRef,
@@ -93,6 +94,8 @@ export default function Chart({ chart, priceLevels, rejection }: ChartProps) {
     });
     useDivergences(chartRef, chart.divergences ?? []);
     useRejection(candlesRef, rejection);
+
+    usePriceLevels(chartRef, candlesRef, priceLevels, onPriceLevelUpdate);
 
     return <div ref={divRef} />;
 }

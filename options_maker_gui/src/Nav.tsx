@@ -133,7 +133,7 @@ export default function Nav(): JSX.Element {
                     {tickers.map(symbol => (
                         <li key={symbol}>
                             <NavLink to={`/ticker/${symbol}`} className={navStyle(symbols[symbol])}>
-                                <span className="symbol">{symbol}</span>&nbsp;
+                                <span className="symbol">{symbol}{symbols[symbol].priceLevelsOverridden ? '*' : ''}</span>&nbsp;
                                 | ${lastPrice(symbols[symbol]).toFixed(2)}&nbsp;
                                 | ${symbols[symbol].atr?.toFixed(2)}
                             </NavLink>

@@ -23,7 +23,7 @@ pub struct Controller {
     tick: Option<Candle>,
     tick_published: DateTime<Local>,
     tick_publish_delay: Duration,
-    price_levels_overrode: bool,
+    price_levels_overriden: bool,
     price_levels: Vec<PriceLevel>,
     rejection: Option<PriceRejection>,
     rejection_msg: RejectionMessage,
@@ -79,7 +79,7 @@ impl Controller {
             tick: None,
             tick_published: util::time::now(),
             tick_publish_delay: Duration::milliseconds(tick_publish_delay_ms),
-            price_levels_overrode: !price_levels.is_empty(),
+            price_levels_overriden: !price_levels.is_empty(),
             price_levels,
             rejection: None,
             rejection_msg: RejectionMessage {
@@ -153,6 +153,7 @@ impl Controller {
             "charts": charts,
             "atr": atr,
             "priceLevels": self.price_levels,
+            "priceLevelsOverridden": self.price_levels_overriden,
             "rejection": self.rejection_msg,
         });
         websocket::publish("UPDATE_CHART", data);
@@ -163,7 +164,7 @@ impl Controller {
             chart.update(&self.candles);
         }
 
-        if !self.price_levels_overrode {
+        if !self.price_levels_overriden {
             self.update_price_levels();
         }
         self.find_support_resistance();

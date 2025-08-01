@@ -1,21 +1,22 @@
-import type { IChartApi, IPriceLine, ISeriesApi, SeriesType } from "lightweight-charts";
+import type {
+    IChartApi,
+    IPriceLine,
+    ISeriesApi,
+    SeriesType,
+} from "lightweight-charts";
 
 const PRICE_LINE_DRAG_THRESHOLD = 5;
 
-export interface PriceLines {
-    [name: string]: IPriceLine,
-}
-
-export type UpdateHandler = (name: string, price: number) => boolean;
+export type UpdateHandler = (idx: number, price: number) => boolean;
 
 export default class PriceLineDragPlugin {
     private readonly chartElement: HTMLElement;
     private readonly candles: ISeriesApi<SeriesType>;
     private onUpdate?: UpdateHandler;
 
-    private priceLines: PriceLines = {};
+    private priceLines: IPriceLine[] = [];
 
-    private foundPriceLine: [string, IPriceLine] | null = null;
+    private foundPriceLine: [number, IPriceLine] | null = null;
 
     constructor(chart: IChartApi, candles: ISeriesApi<SeriesType>) {
         this.chartElement = chart.chartElement();
@@ -34,7 +35,7 @@ export default class PriceLineDragPlugin {
         this.onUpdate = onUpdate;
     }
 
-    setPriceLines = (lines: PriceLines) => {
+    setPriceLines = (lines: IPriceLine[]) => {
         this.priceLines = lines;
     }
 
@@ -43,11 +44,11 @@ export default class PriceLineDragPlugin {
 
         const { top } = this.chartElement.getBoundingClientRect();
         const clientY = event.clientY - top;
-        for (const [name, priceLine] of Object.entries(this.priceLines)) {
+        for (const [idx, priceLine] of this.priceLines.entries()) {
             const price = priceLine.options().price;
             const coordiate = this.candles.priceToCoordinate(price);
             if (coordiate != null && Math.abs(coordiate - clientY) <= PRICE_LINE_DRAG_THRESHOLD) {
-                this.foundPriceLine = [name, priceLine];
+                this.foundPriceLine = [idx, priceLine];
                 break;
             }
         }
@@ -65,13 +66,13 @@ export default class PriceLineDragPlugin {
     private onMouseMove = (event: MouseEvent) => {
         if (this.foundPriceLine == null) return false;
 
-        const [name, priceLine] = this.foundPriceLine;
+        const [idx, priceLine] = this.foundPriceLine;
         const { top } = this.chartElement.getBoundingClientRect();
         const clientY = event.clientY - top;
         const newPrice = this.candles.coordinateToPrice(clientY);
         if (newPrice == null) return false;
 
-        if (this.onUpdate == null || this.onUpdate(name, newPrice)) {
+        if (this.onUpdate == null || this.onUpdate(idx, newPrice)) {
             priceLine.applyOptions({ price: newPrice });
         }
 

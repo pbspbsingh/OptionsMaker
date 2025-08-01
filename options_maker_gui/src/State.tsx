@@ -86,6 +86,7 @@ export type Symbol = {
     lastUpdated: number,
     atr?: number,
     priceLevels: PriceLevel[],
+    priceLevelsOverridden: boolean,
     rejection: Rejection,
     charts: Chart[],
 }

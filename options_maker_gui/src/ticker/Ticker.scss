@@ -21,96 +21,30 @@
         }
 
         .quick-actions {
-            margin-left: auto;
             display: flex;
             gap: 1rem;
             align-items: center;
             white-space: nowrap;
+            font-size: .8rem;
+            margin-left: 2rem;
+            flex: 1;
+
+            &>:first-child {
+                margin-left: auto;
+            }
+
+            input[type=text] {
+                margin-bottom: 0;
+                padding: 0 .2rem;
+                --pico-line-height: 2rem;
+                text-align: right;
+            }
 
             input[type=range] {
                 margin: 0;
                 padding: 0;
+                width: 150px;
             }
-        }
-    }
-
-    .options-view {
-        font-size: .8rem;
-        --pico-block-spacing-vertical: .3rem;
-        --pico-block-spacing-horizontal: .3rem;
-
-        article {
-            header {
-                padding-top: .5rem;
-
-                &>* {
-                    margin-left: 0.6rem;
-                    margin-bottom: .1rem;
-                }
-            }
-        }
-
-        table {
-            border-collapse: collapse;
-            margin-bottom: .2rem;
-
-            thead td {
-                border-bottom: 1px solid #292727;
-            }
-
-            tbody td {
-                border: none;
-                white-space: nowrap;
-            }
-
-            tr:not(.current-price) {
-                cursor: pointer;
-            }
-
-            td {
-                padding: .25rem;
-            }
-
-            tr.selected td {
-                color: var(--pico-primary-inverse);
-                background-color: var(--pico-primary-hover-border);
-            }
-
-            tr.current-price {
-                td {
-                    font-size: .6rem;
-                    font-weight: bold;
-                    letter-spacing: 2px;
-                    color: var(--pico-secondary);
-                    text-align: center;
-                    padding: 5px;
-                    background-color: var(--pico-muted-border-color);
-                }
-            }
-        }
-    }
-
-    .order-form {
-        font-size: .8rem;
-        display: flex;
-        align-items: end;
-        gap: 1.25rem;
-        --pico-spacing: .25rem;
-        --pico-form-element-spacing-vertical: .5rem;
-        --pico-form-element-spacing-horizontal: .5rem;
-
-        &>:last-child {
-            margin-inline-start: auto;
-        }
-
-        label {
-            font-size: .6rem;
-            color: var(--pico-secondary);
-        }
-
-        input {
-            width: auto;
-            font-size: .8rem;
         }
     }
 
@@ -139,28 +73,6 @@
             &>* {
                 grid-column: 1 / -1;
             }
-        }
-    }
-
-    .price-level-update {
-        margin-top: 1rem;
-        display: flex;
-        align-items: center;
-        gap: 1rem;
-        font-size: 0.8rem;
-        --pico-form-element-spacing-vertical: 0.3rem;
-
-        &>* {
-            margin: 0;
-        }
-
-        input[type=text] {
-            width: auto;
-            flex: 1;
-        }
-
-        button {
-            padding: 0.2rem 0.8rem;
         }
     }
 }
