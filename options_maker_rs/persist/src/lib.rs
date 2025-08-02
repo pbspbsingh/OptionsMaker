@@ -19,7 +19,7 @@ static DB_POOL: OnceLock<SqlitePool> = OnceLock::new();
 
 pub async fn init() -> Result<()> {
     let options = SqliteConnectOptions::from_str(&APP_CONFIG.db_url)?
-        .auto_vacuum(SqliteAutoVacuum::Incremental)
+        .auto_vacuum(SqliteAutoVacuum::Full)
         .journal_mode(SqliteJournalMode::Wal)
         .synchronous(SqliteSynchronous::Normal)
         .shared_cache(true)

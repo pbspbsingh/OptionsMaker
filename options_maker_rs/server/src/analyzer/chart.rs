@@ -45,6 +45,7 @@ impl Chart {
         let close = &self.dataframe["close"];
         let rsi = utils::rsi(close);
         let ema = utils::ema(close, self.ema_len);
+
         self.dataframe.insert_column("rsi", rsi).unwrap();
         self.dataframe.insert_column("ma", ema).unwrap();
     }

@@ -23,17 +23,24 @@ export default function Ticker() {
 
     useEffect(() => {
         document.title = ticker;
+        setPriceLevelsEdited(false);
     }, [ticker]);
 
     useEffect(() => {
         if (symbol != null && !priceLevelsEdited && !deepEqual(symbol.priceLevels, priceLevels)) {
             setPriceLevels(symbol.priceLevels);
         }
-    }, [ticker, symbol]);
+    }, [ticker, symbol, priceLevelsEdited, priceLevels]);
 
     if (symbol == null) {
         return null;
     }
+
+    const snackbarAction = (id: SnackbarKey) => (
+        <button onClick={() => closeSnackbar(id)}>
+            Dismiss
+        </button>
+    );
 
     const onPriceLevelDragged = (idx: number, priceLevel: number) => {
         const newPriceLevels = priceLevels.map(p => p.price);
@@ -42,12 +49,6 @@ export default function Ticker() {
         setPriceLevelsEdited(true);
         return false;
     };
-
-    const snackbarAction = (id: SnackbarKey) => (
-        <button onClick={() => closeSnackbar(id)}>
-            Dismiss
-        </button>
-    );
 
     const onPriceLevelsEdited = (newLevels: number[]) => {
         const levels = newLevels.filter(p => !isNaN(p))
