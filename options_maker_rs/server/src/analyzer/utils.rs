@@ -1,5 +1,4 @@
 use crate::analyzer::controller::Trend;
-use crate::analyzer::utils;
 use chrono::{DateTime, Duration, Local};
 use schwab_client::Candle;
 use std::collections::BTreeMap;
@@ -75,42 +74,48 @@ fn fill_na_gap(mut values: Vec<f64>, expected_len: usize) -> Vec<f64> {
     }
 }
 
-pub fn check_trend(candles: &[Candle]) -> Option<Trend> {
-    fn ema(candles: Vec<Candle>, len: u32) -> Vec<f64> {
-        utils::ema(
-            &candles.into_iter().map(|c| c.close).collect::<Vec<_>>(),
-            len,
-        )
+const EMA_200_LEN: usize = 4;
+
+pub fn check_trend(candles: &[Candle]) -> Trend {
+    fn _ema(candles: &[Candle], len: i32) -> Vec<f64> {
+        let close_price = candles.into_iter().map(|c| c.close).collect::<Vec<_>>();
+        overlap::ema(&close_price, len).expect("Failed to compute ema")
+    }
+
+    fn _trending(values: &[f64], increase: bool) -> bool {
+        for sub in values.windows(2) {
+            let cur = sub[0];
+            let next = sub[1];
+            if (increase && cur >= next) || (!increase && cur <= next) {
+                return false;
+            }
+        }
+        true
     }
 
     let four_hours = aggregate(candles, Duration::hours(4));
-    let mut four_hour_ema = ema(four_hours, 100).into_iter().rev();
+    let four_hours = _ema(&four_hours, 100);
+    if four_hours.is_empty() {
+        return Trend::None;
+    }
 
     let one_hours = aggregate(candles, Duration::hours(1));
-    let mut one_hours_ema = ema(one_hours, 200).into_iter().rev();
+    let one_hours = _ema(&one_hours, 200);
+    if one_hours.len() < EMA_200_LEN {
+        return Trend::None;
+    }
 
-    let last = candles.last()?;
-    let four_hour_z = four_hour_ema.next()?;
-    let (one_hour_z, one_hour_y, one_hour_x) = (
-        one_hours_ema.next()?,
-        one_hours_ema.next()?,
-        one_hours_ema.next()?,
-    );
-
-    if four_hour_z < one_hour_z
-        && one_hour_z < last.close
-        && one_hour_x < one_hour_y
-        && one_hour_y < one_hour_z
-    {
-        Some(Trend::Bullish)
-    } else if four_hour_z > one_hour_z
-        && one_hour_z > last.close
-        && one_hour_x > one_hour_y
-        && one_hour_y > one_hour_z
-    {
-        Some(Trend::Bearish)
+    let prices = [*four_hours.last().unwrap()]
+        .into_iter()
+        .chain(one_hours[one_hours.len() - EMA_200_LEN..].iter().copied())
+        .chain(candles.last().map(|c| c.close))
+        .collect::<Vec<_>>();
+    if _trending(&prices, true) {
+        Trend::Bullish
+    } else if _trending(&prices, false) {
+        Trend::Bearish
     } else {
-        None
+        Trend::None
     }
 }
 
@@ -125,7 +130,7 @@ pub fn check_trend(candles: &[Candle]) -> Option<Trend> {
 /// Smoothed data as Vec<f64>
 #[allow(clippy::needless_range_loop)]
 pub fn gaussian_smooth(data: &[f64], sigma: f64, kernel_size: Option<usize>) -> Vec<f64> {
-    fn gaussian_kernel(sigma: f64, kernel_size: usize) -> Vec<f64> {
+    fn _gaussian_kernel(sigma: f64, kernel_size: usize) -> Vec<f64> {
         let center = (kernel_size / 2) as i32;
         let mut kernel = Vec::with_capacity(kernel_size);
         let mut sum = 0.0;
@@ -155,7 +160,7 @@ pub fn gaussian_smooth(data: &[f64], sigma: f64, kernel_size: Option<usize>) -> 
         if size % 2 == 0 { size + 1 } else { size }
     });
 
-    let kernel = gaussian_kernel(sigma, ksize);
+    let kernel = _gaussian_kernel(sigma, ksize);
     let half_kernel = ksize / 2;
     let mut result = data.to_vec(); // Start with original data
 

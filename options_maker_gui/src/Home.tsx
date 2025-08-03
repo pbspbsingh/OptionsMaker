@@ -1,13 +1,13 @@
 import { useContext } from "react";
 import { AppStateContext } from "./State";
 import { Link } from "react-router";
-import { getSRInfo, getTrends } from "./utils";
+import { getDivergences, getSRInfo } from "./utils";
 
 export default function Home() {
     const { symbols } = useContext(AppStateContext);
 
     const srs = getSRInfo(symbols);
-    const trendsList = getTrends(symbols);
+    const divergences = getDivergences(symbols);
 
     return (<section className="grid">
         <article>
@@ -38,21 +38,17 @@ export default function Home() {
         </article>
         <article>
             <header>
-                <h6>Trending</h6>
+                <h6>Divergences</h6>
             </header>
-            {trendsList.length > 0 && trendsList.map((trends, idx) =>
-                <div key={idx}>
-                    <ul>
-                        {trends.map(({ ticker, trend }) =>
-                            <li key={ticker}>
-                                <Link to={`/ticker/${ticker}`} title={`${new Date(trend.start)}`}>
-                                    {ticker}: {new Date(trend.start).toLocaleString()}
-                                </Link>
-                            </li>)}
-                    </ul>
-                    {idx != trendsList.length - 1 && <hr />}
-                </div>)}
+            <ul>
+                {divergences.map(div =>
+                (<li key={div.ticker}>
+                    <Link to={`/ticker/${div.ticker}`} title={div.type} className={div.type.toLowerCase()}>
+                        {div.ticker}: {div.start.toLocaleString()}-{div.end.toLocaleString()}
+                    </Link>
+                </li>)
+                )}
+            </ul>
         </article>
-
     </section>);
 }

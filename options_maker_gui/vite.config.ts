@@ -10,6 +10,8 @@ export default defineConfig({
       '/api': {
         target: 'http://localhost:8080/',
         ws: true,
+        // target: 'http://192.168.1.148:8080/',
+        // secure: false,
       }
     }
   },

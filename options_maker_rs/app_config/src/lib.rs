@@ -54,6 +54,8 @@ pub struct ChartConfig {
     pub timeframe: Duration,
     pub days: u64,
     pub ema: u32,
+    #[serde(default)]
+    pub use_divergence: bool,
 }
 
 fn parse_timeframe<'de, D: Deserializer<'de>>(deserializer: D) -> Result<Duration, D::Error> {

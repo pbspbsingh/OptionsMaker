@@ -58,7 +58,7 @@ export type Rejection = {
 };
 
 export type Divergence = {
-    div_type: "Bearish" | "Bullish",
+    div_type: "Bullish" | "Bearish",
     start: UTCTimestamp,
     start_price: number,
     start_rsi: number,

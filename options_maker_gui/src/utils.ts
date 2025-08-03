@@ -4,7 +4,6 @@ import {
     type Price,
     type Rejection,
     type Symbol,
-    type Trend,
 } from "./State";
 import { useContext } from "react";
 
@@ -41,33 +40,6 @@ export function useLastPrice(ticker: string): number {
     return charts.prices[charts.prices.length - 1].close;
 }
 
-// Convert PST timestap to UTC timestap, +7 hours
-export const toChartDate = (date: number) => new Date((date + 7 * 3600) * 1000)
-
-export interface TrendWrapper {
-    ticker: string,
-    trend: Trend,
-}
-
-export function getTrends(symbols: Symbols): TrendWrapper[][] {
-    const trends: TrendWrapper[][] = [];
-    for (const [ticker, symbol] of Object.entries(symbols)) {
-        for (const [i, chart] of symbol.charts.entries()) {
-            if (trends[i] == null) {
-                trends[i] = [];
-            }
-            if (chart.trend != null) {
-                trends[i].push({ ticker, trend: chart.trend });
-            }
-        }
-    }
-    for (const trend of trends) {
-        trend.sort((a, b) => new Date(b.trend.start).getTime() - new Date(a.trend.start).getTime());
-    }
-    trends.reverse();
-    return trends;
-}
-
 export interface SupportResistance {
     ticker: string,
     rejection: Rejection,
@@ -90,3 +62,31 @@ export function getSRInfo(symbols: Symbols): SupportResistance[] {
     });
     return support;
 }
+
+export interface Diverge {
+    ticker: string,
+    type: 'Bullish' | 'Bearish',
+    start: Date,
+    end: Date,
+}
+
+export function getDivergences(symbols: Symbols): Diverge[] {
+    const result: Diverge[] = [];
+    for (const symbol of Object.values(symbols)) {
+        if (symbol.charts.length === 0) continue;
+        const chart = symbol.charts[symbol.charts.length - 1];
+        if (chart.divergences.length === 0) continue;
+        const div = chart.divergences[chart.divergences.length - 1];
+        result.push({
+            ticker:  symbol.symbol,
+            type: div.div_type,
+            start: toChartDate(div.start),
+            end: toChartDate(div.end),
+        });
+    }
+    result.sort((a, b) => b.end.getTime() - a.end.getTime());
+    return result;
+}
+
+// Convert PST timestap to UTC timestap, +7 hours
+export const toChartDate = (date: number) => new Date((date + 7 * 3600) * 1000);

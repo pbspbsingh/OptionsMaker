@@ -160,14 +160,15 @@ impl Controller {
     }
 
     fn update_charts(&mut self, publish: bool) {
+        let trend = utils::check_trend(&self.candles);
         for chart in &mut self.charts {
-            chart.update(&self.candles);
+            chart.update(&self.candles, trend);
         }
 
         if !self.price_levels_overriden {
             self.update_price_levels();
         }
-        self.find_support_resistance();
+        self.find_support_resistance(trend);
 
         if publish {
             self.publish();
@@ -207,7 +208,7 @@ impl Controller {
         }
     }
 
-    fn find_support_resistance(&mut self) -> Option<()> {
+    fn find_support_resistance(&mut self, trend: Trend) -> Option<()> {
         self.price_levels.iter_mut().for_each(|level| {
             level.is_active = false;
         });
@@ -229,7 +230,6 @@ impl Controller {
 
         let candles = utils::aggregate(&self.candles, Duration::minutes(5));
         let last = candles.last()?;
-        let trend = utils::check_trend(&candles)?;
         if matches!(trend, Trend::Bullish | Trend::Bearish) {
             let price_level = self
                 .price_levels
