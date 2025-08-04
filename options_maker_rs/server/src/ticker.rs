@@ -45,9 +45,9 @@ async fn remove_ticker(Query(symbols): Query<HashMap<String, String>>) -> AppRes
         analyzer::send_analyzer_cmd(AnalyzerCmd::Remove(symbol));
         Ok(())
     } else {
-        Err(AppError::Generic(
-            "Couldn't remove ticker {symbol}".to_string(),
-        ))
+        Err(AppError::Generic(format!(
+            "Couldn't remove ticker {symbol:?}"
+        )))
     }
 }
 
