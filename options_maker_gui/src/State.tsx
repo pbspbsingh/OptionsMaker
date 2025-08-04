@@ -23,6 +23,9 @@ export type AppAction = {
 } | {
     action: 'REPLAY_MODE',
     data: ReplayMode,
+} | {
+    action: 'HEARTBEAT',
+    data: {},
 };
 
 export type Account = {
@@ -176,6 +179,10 @@ export function appReducer(state: AppState, action: AppAction): AppState {
                 ...state,
                 replay_mode: action.data,
             }
+        }
+        case 'HEARTBEAT': {
+            // Don't do anything
+            return state;
         }
         default: {
             console.warn('Unexpected action', action);

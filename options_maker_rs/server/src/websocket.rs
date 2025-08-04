@@ -14,6 +14,7 @@ use serde_json::{Value, json};
 use std::io::Read;
 use std::sync::LazyLock;
 use std::sync::atomic::{AtomicUsize, Ordering};
+use std::time::Duration;
 use tokio::sync::{RwLock, mpsc};
 use tracing::{debug, warn};
 
@@ -64,6 +65,7 @@ async fn handle_websocket(socket: WebSocket) -> anyhow::Result<()> {
     });
 
     loop {
+        let heartbeat_timer = tokio::time::sleep(Duration::from_secs(10));
         tokio::select! {
             Some(value) = receiver.recv() => {
                 if ws_writer.send(to_message(value)).await.is_err() {
@@ -73,6 +75,15 @@ async fn handle_websocket(socket: WebSocket) -> anyhow::Result<()> {
             Some(Ok(message)) = ws_reader.next() => {
                 if let Message::Close(_) = message {
                     debug!("Closing websocket connection: {ws_id}");
+                    break;
+                }
+            }
+            _ = heartbeat_timer => {
+                let msg = json!({
+                    "action": "HEARTBEAT",
+                    "data": { "timestamp": util::time::now().timestamp() }
+                });
+                if ws_writer.send(to_message(msg)).await.is_err() {
                     break;
                 }
             }

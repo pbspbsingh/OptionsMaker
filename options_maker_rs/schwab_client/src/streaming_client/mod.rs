@@ -10,10 +10,13 @@ use std::time::Duration;
 use streamer::Streamer;
 
 use tokio::sync::{RwLock, mpsc};
+use tokio::time;
 use tokio_tungstenite::tungstenite::Message;
 use tracing::{debug, info, warn};
 
 mod streamer;
+
+const WS_TIMEOUT_SECS: u64 = 15;
 
 pub struct StreamingClient {
     cmd_sender: mpsc::UnboundedSender<StreamCommand>,
@@ -114,6 +117,7 @@ impl StreamingClient {
                 }
 
                 'select: while clients_alive() {
+                    let client_hung_timer = time::sleep(Duration::from_secs(WS_TIMEOUT_SECS));
                     tokio::select! {
                         Some(cmd) = cmd_receiver.recv() => {
                             match cmd {
@@ -196,19 +200,23 @@ impl StreamingClient {
                                 _ => {}
                             };
                         }
+                        _ = client_hung_timer => {
+                            warn!("Didn't receive any message from websocket for at least {WS_TIMEOUT_SECS} seconds, terminating the connection");
+                            break 'select;
+                        }
                     }
                 }
 
                 drop(config);
                 drop(ws_stream);
 
-                let mut wait_time = Duration::from_secs(15);
+                let mut wait_time = Duration::from_secs(WS_TIMEOUT_SECS);
                 (config, ws_stream) = loop {
                     if !clients_alive() {
                         break 'main;
                     }
                     warn!("Websocket stream terminated, will retry after {wait_time:?}");
-                    tokio::time::sleep(wait_time).await;
+                    time::sleep(wait_time).await;
                     if cmd_receiver.is_empty() && subs_empty(&subscribed_symbols) {
                         // There is no need to connect to websocket
                         continue;

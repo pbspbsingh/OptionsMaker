@@ -6,7 +6,8 @@ export default class Websocket {
     private statusHandler?: (status: boolean) => void = undefined;
     private ws?: WebSocket = undefined;
     private closing: boolean = false;
-    private retry_count = 0;
+    private reconnectionTimer: number = 0;
+    private retryCount = 0;
 
     constructor(path: string, msgHandler: (data: any) => void) {
         this.path = path;
@@ -20,7 +21,7 @@ export default class Websocket {
                 return;
             }
 
-            console.log('Trying to connect ws', this.path, ++this.retry_count);
+            console.log('Trying to connect ws', this.path, ++this.retryCount);
             const ws = new WebSocket(this.path);
             ws.onopen = () => {
                 console.info('Successfully connected to ws');
@@ -29,6 +30,7 @@ export default class Websocket {
                 }
             };
             ws.onmessage = (msg) => {
+                this.scheduleReconnection();
                 try {
                     const payload = msg.data;
                     if (typeof payload === 'string') {
@@ -71,6 +73,18 @@ export default class Websocket {
     onStatusChange = (statusHandler: (status: boolean) => void) => {
         this.statusHandler = statusHandler;
     }
+
+    private scheduleReconnection = () => {
+        clearTimeout(this.reconnectionTimer);
+        this.reconnectionTimer = setTimeout(() => {
+            console.warn("Didn't receieve HEARTBEAT from server, connection status:", this.ws?.readyState);
+            if (this.ws != null && this.ws.readyState === WebSocket.OPEN) {
+                console.info('Trying to close the zombie connection');
+                this.ws.close();
+            }
+            this.ws = undefined;
+        }, 15_000);
+    };
 
     close = () => {
         this.closing = true;
