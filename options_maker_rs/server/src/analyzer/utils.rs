@@ -78,7 +78,7 @@ const EMA_200_LEN: usize = 4;
 
 pub fn check_trend(candles: &[Candle]) -> Trend {
     fn _ema(candles: &[Candle], len: i32) -> Vec<f64> {
-        let close_price = candles.into_iter().map(|c| c.close).collect::<Vec<_>>();
+        let close_price = candles.iter().map(|c| c.close).collect::<Vec<_>>();
         overlap::ema(&close_price, len).expect("Failed to compute ema")
     }
 

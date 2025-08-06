@@ -57,9 +57,12 @@ export default function Nav(): JSX.Element {
         if (target.nodeName !== "A") {
             return;
         }
-        const symbol = target.querySelector('.symbol')?.innerHTML.trim();
+        
+        let symbol = target.querySelector('.symbol')?.innerHTML.trim();
         if (symbol == null) return;
-
+        if (symbol.endsWith('*')) {
+            symbol = symbol.substring(0, symbol.length - 1);
+        }
         setSelectedContextMenuItem(symbol);
         setContextMenuLoc({ left: e.pageX, top: e.pageY });
         setShowContextMenu(true);

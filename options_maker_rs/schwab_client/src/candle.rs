@@ -45,7 +45,7 @@ impl Candle {
     }
 
     pub fn invert(&self) -> Self {
-        let candle = self.clone();
+        let candle = *self;
         Self {
             open: -candle.open,
             close: -candle.close,

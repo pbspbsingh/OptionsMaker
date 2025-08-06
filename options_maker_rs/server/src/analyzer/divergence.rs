@@ -23,7 +23,7 @@ pub fn find_divergence(trend: Trend, df: &DataFrame, indicator: &str) -> Option<
     let use_peak = trend == Trend::Bearish;
 
     let indicator = &df[indicator];
-    let extrema_idx = find_extrema(&indicator, use_peak, 3);
+    let extrema_idx = find_extrema(indicator, use_peak, 3);
     if extrema_idx.is_empty() || *extrema_idx.last()? != indicator.len() - 1 {
         return None;
     }
@@ -35,7 +35,7 @@ pub fn find_divergence(trend: Trend, df: &DataFrame, indicator: &str) -> Option<
     let mut last_angle = if use_peak { f64::MAX } else { f64::MIN };
     let last_idx = *extrema_idx.last()?;
     for i in extrema_idx.into_iter().rev().skip(1) {
-        let angle = find_angle(index, &indicator, (i, last_idx));
+        let angle = find_angle(index, indicator, (i, last_idx));
         if (use_peak && angle > last_angle) || (!use_peak && angle < last_angle) {
             continue;
         }
@@ -57,6 +57,7 @@ pub fn find_divergence(trend: Trend, df: &DataFrame, indicator: &str) -> Option<
     None
 }
 
+#[allow(clippy::needless_range_loop)]
 fn find_extrema(values: &[f64], peaks: bool, order: usize) -> Vec<usize> {
     if values.is_empty() || order == 0 {
         return Vec::new();
