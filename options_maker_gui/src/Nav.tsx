@@ -183,7 +183,8 @@ const navStyle = (symbol: Symbol): string => {
         return '';
     }
     const isImminent = symbol.rejection.is_imminent ? 'imminent' : '';
-    return `${symbol.rejection.trend.toLowerCase()} ${isImminent}`;
+    const isGapFill = symbol.rejection.is_gap_fill ? 'gap-fill' : '';
+    return `${symbol.rejection.trend.toLowerCase()} ${isImminent} ${isGapFill}`;
 };
 
 const lastPrice = (symbol: Symbol): number => {

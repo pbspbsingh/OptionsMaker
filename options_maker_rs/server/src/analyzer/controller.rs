@@ -3,6 +3,7 @@ use super::dataframe::DataFrame;
 use super::support_resistance::{PriceRejection, check_resistance, check_support, threshold};
 use super::utils;
 
+use crate::analyzer::gap_fill::GapFill;
 use crate::websocket;
 use app_config::APP_CONFIG;
 use chrono::{DateTime, Duration, Local, NaiveDateTime};
@@ -23,6 +24,7 @@ pub struct Controller {
     price_levels_overriden: bool,
     price_levels: Vec<PriceLevel>,
     rejection: Option<PriceRejection>,
+    gap_fill: GapFill,
     rejection_msg: RejectionMessage,
 }
 
@@ -44,8 +46,9 @@ pub struct PriceLevel {
 struct RejectionMessage {
     trend: Trend,
     is_imminent: bool,
-    found_at: DateTime<Local>,
+    is_gap_fill: bool,
     ended: bool,
+    found_at: DateTime<Local>,
     points: Vec<(i64, f64)>,
 }
 
@@ -79,11 +82,13 @@ impl Controller {
             price_levels_overriden: !price_levels.is_empty(),
             price_levels,
             rejection: None,
+            gap_fill: GapFill::default(),
             rejection_msg: RejectionMessage {
                 trend: Trend::None,
                 is_imminent: false,
-                found_at: DateTime::default(),
+                is_gap_fill: false,
                 ended: true,
+                found_at: DateTime::default(),
                 points: Vec::new(),
             },
         }
@@ -162,9 +167,7 @@ impl Controller {
             chart.update(&self.candles, trend);
         }
 
-        if !self.price_levels_overriden {
-            self.update_price_levels();
-        }
+        self.update_price_levels();
         self.find_support_resistance(trend);
 
         if publish {
@@ -195,13 +198,16 @@ impl Controller {
                     || (idx.date() == last.time.date_naive() && idx.time() < th_start)
             });
 
-            let mut levels = Vec::new();
-            utils::find_min_max(&mut levels, &regular_hours); // High lows for yesterday
-            utils::find_min_max(&mut levels, &extended_hours); // High lows for overnight session
-            utils::find_min_max(&mut levels, &data_frame.trim_working_days(5)); // High lows for week
-            utils::find_min_max(&mut levels, &data_frame.trim_working_days(20)); // High lows for month
+            if !self.price_levels_overriden {
+                let mut levels = Vec::new();
+                utils::find_min_max(&mut levels, &regular_hours); // High lows for yesterday
+                utils::find_min_max(&mut levels, &extended_hours); // High lows for overnight session
+                utils::find_min_max(&mut levels, &data_frame.trim_working_days(5)); // High lows for week
+                utils::find_min_max(&mut levels, &data_frame.trim_working_days(20)); // High lows for month
 
-            self.price_levels = utils::dedupe_price_levels(levels, threshold(last.close))
+                self.price_levels = utils::dedupe_price_levels(levels, threshold(last.close))
+            }
+            self.gap_fill = GapFill::new(&regular_hours, &extended_hours);
         }
     }
 
@@ -210,7 +216,9 @@ impl Controller {
             level.is_active = false;
         });
         self.rejection_msg.is_imminent = false;
+        self.rejection_msg.is_gap_fill = false;
         self.rejection_msg.ended = true;
+
         let prev_rej = self.rejection.take();
 
         let last = self.candles.last()?;
@@ -227,30 +235,38 @@ impl Controller {
 
         let candles = utils::aggregate(&self.candles, Duration::minutes(5));
         let last = candles.last()?;
-        if matches!(trend, Trend::Bullish | Trend::Bearish) {
-            let price_level = self
-                .price_levels
-                .iter_mut()
-                .filter(|level| {
-                    if trend == Trend::Bullish {
-                        level.price <= last.close
-                    } else {
-                        level.price >= last.close
-                    }
-                })
-                .sorted_by(|l1, l2| {
-                    utils::cmp_f64((last.close - l1.price).abs(), (last.close - l2.price).abs())
-                })
-                .next()?;
-            price_level.is_active = true;
+        if trend == Trend::Bullish || trend == Trend::Bearish {
             let atr = self.charts.first().and_then(Chart::atr)?;
-            let rejection = if trend == Trend::Bullish {
-                check_support(&candles, price_level.price, atr)
-            } else {
-                check_resistance(&candles, price_level.price, atr)
-            }?;
 
-            let timestamp = if let Some(prev_rej) = prev_rej {
+            let mut is_gap_fill = false;
+            let rejection = self.gap_fill.check_sr(&candles, atr);
+            if rejection.is_some() {
+                is_gap_fill = true;
+            }
+            let rejection = rejection.or_else(|| {
+                let price_level = self
+                    .price_levels
+                    .iter_mut()
+                    .filter(|level| {
+                        if trend == Trend::Bullish {
+                            level.price <= last.close
+                        } else {
+                            level.price >= last.close
+                        }
+                    })
+                    .sorted_by(|l1, l2| {
+                        utils::cmp_f64((last.close - l1.price).abs(), (last.close - l2.price).abs())
+                    })
+                    .next()?;
+                price_level.is_active = true;
+                if trend == Trend::Bullish {
+                    check_support(&candles, price_level.price, atr)
+                } else {
+                    check_resistance(&candles, price_level.price, atr)
+                }
+            })?;
+
+            let found_at = if let Some(prev_rej) = prev_rej {
                 if prev_rej.rejected_at.time == rejection.rejected_at.time {
                     self.rejection_msg.found_at
                 } else {
@@ -266,14 +282,15 @@ impl Controller {
                 rejection.price_level,
                 rejection.rejected_at.time.time(),
                 rejection.is_imminent,
-                timestamp.naive_local(),
+                found_at.naive_local(),
             );
             self.rejection_msg = RejectionMessage {
                 trend: rejection.trend,
                 is_imminent: rejection.is_imminent,
-                found_at: timestamp,
+                is_gap_fill,
                 ended: false,
-                points: Self::create_chart_points(&rejection, timestamp),
+                found_at,
+                points: Self::create_chart_points(&rejection, found_at),
             };
             self.rejection = Some(rejection);
         }

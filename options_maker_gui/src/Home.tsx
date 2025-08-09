@@ -7,6 +7,7 @@ export default function Home() {
     const { symbols } = useContext(AppStateContext);
 
     const srs = getSRInfo(symbols);
+    const gapFills = srs.filter(({ rejection }) => rejection.is_gap_fill);
     const divergences = getDivergences(symbols);
 
     return (<section className="grid">
@@ -37,6 +38,22 @@ export default function Home() {
             </ul>
         </article>
         <article>
+            {gapFills.length > 0 && <>
+                <header>
+                    <h6>Gap Fills</h6>
+                </header>
+                <ul>
+                    {gapFills.map(({ ticker, rejection }) => (
+                        <li key={ticker}>
+                            <Link to={`/ticker/${ticker}`} className={rejection.trend.toLowerCase()}>
+                                {ticker}: {rejection.trend} at: {new Date(rejection.found_at).toLocaleString()}
+                            </Link>
+                        </li>
+                    ))}
+                </ul>
+                <hr />
+            </>}
+            
             <header>
                 <h6>Divergences</h6>
             </header>

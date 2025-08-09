@@ -2,6 +2,7 @@ mod chart;
 mod controller;
 mod dataframe;
 mod divergence;
+mod gap_fill;
 mod support_resistance;
 mod trend_processor;
 mod utils;

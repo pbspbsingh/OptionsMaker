@@ -53,10 +53,11 @@ export type PriceLevel = {
 };
 
 export type Rejection = {
-    is_imminent: boolean,
     trend: 'None' | 'Bearish' | 'Bullish',
-    found_at: string,
+    is_imminent: boolean,
+    is_gap_fill: boolean,
     ended: boolean,
+    found_at: string,
     points: Array<[UTCTimestamp, number]>,
 };
 
@@ -92,7 +93,7 @@ export type Symbol = {
     priceLevelsOverridden: boolean,
     rejection: Rejection,
     charts: Chart[],
-}
+};
 
 export type Quote = {
     symbol: string,
@@ -105,7 +106,7 @@ export type ReplayMode = {
     playing: boolean,
     symbol: string,
     speed: number,
-}
+};
 
 export type AppState = {
     connected: boolean,
@@ -127,9 +128,8 @@ export const DEFAULT_APP_STATE: AppState = {
     replay_mode: null,
 };
 
-
-
 export const AppStateContext = createContext<AppState>(DEFAULT_APP_STATE);
+
 export const AppReducerContext = createContext<ActionDispatch<[AppAction]>>(() => { });
 
 export function appReducer(state: AppState, action: AppAction): AppState {

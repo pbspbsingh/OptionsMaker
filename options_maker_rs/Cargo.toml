@@ -22,7 +22,7 @@ axum-server = { version = "0.7", features = ["tls-rustls"] }
 axum = { version = "0.8" }
 
 [profile.dev]
-debug = false
+debug = true
 
 [profile.release]
 debug = false

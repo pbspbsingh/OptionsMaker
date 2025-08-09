@@ -71,6 +71,10 @@
                 font-weight: bold;
             }
 
+            &.gap-fill {
+                font-style: italic;
+            }
+
             &:hover {
                 text-decoration: none;
                 background-color: var(--pico-secondary-focus);
