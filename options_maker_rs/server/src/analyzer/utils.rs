@@ -1,54 +1,61 @@
-use crate::analyzer::controller::Trend;
+use super::controller::{PriceLevel, Trend};
+use super::dataframe::DataFrame;
+
+use app_config::APP_CONFIG;
 use chrono::{DateTime, Duration, Local};
+use rustc_hash::FxHashSet;
 use schwab_client::Candle;
+use std::cmp::Ordering;
 use std::collections::BTreeMap;
+use std::iter;
 use ta_lib::{momentum, overlap};
 
 pub fn aggregate(candles: &[Candle], duration: Duration) -> Vec<Candle> {
+    fn _truncate_time(candle: &Candle, duration: Duration) -> DateTime<Local> {
+        let bucket_secs = duration.num_seconds();
+        let truncated_ts = (candle.time.timestamp() / bucket_secs) * bucket_secs;
+        util::time::from_ts(truncated_ts)
+    }
+
+    fn _aggregate_bucket(
+        time: DateTime<Local>,
+        bucket_data: Vec<&Candle>,
+        duration: Duration,
+    ) -> Option<Candle> {
+        let open = bucket_data.first()?.open;
+        let close = bucket_data.last()?.close;
+        let high = bucket_data
+            .iter()
+            .map(|ohlc| ohlc.high)
+            .fold(f64::NEG_INFINITY, f64::max);
+        let low = bucket_data
+            .iter()
+            .map(|ohlc| ohlc.low)
+            .fold(f64::INFINITY, f64::min);
+        let volume = bucket_data.iter().map(|ohlc| ohlc.volume).sum();
+        let duration = duration.num_seconds();
+        Some(Candle {
+            time,
+            open,
+            high,
+            low,
+            close,
+            volume,
+            duration,
+        })
+    }
+
     let mut buckets = BTreeMap::new();
     for candle in candles {
-        let bucket = truncate_time(candle, duration);
+        let bucket = _truncate_time(candle, duration);
         let entry = buckets.entry(bucket).or_insert_with(Vec::new);
         entry.push(candle);
     }
     buckets
         .into_iter()
-        .filter_map(|(time, ohlc)| aggregate_bucket(time, ohlc, duration))
+        .filter_map(|(time, ohlc)| _aggregate_bucket(time, ohlc, duration))
         .filter(|candle| candle.volume > 0)
         .collect::<Vec<_>>()
-}
-
-fn truncate_time(candle: &Candle, duration: Duration) -> DateTime<Local> {
-    let bucket_secs = duration.num_seconds();
-    let truncated_ts = (candle.time.timestamp() / bucket_secs) * bucket_secs;
-    util::time::from_ts(truncated_ts)
-}
-
-fn aggregate_bucket(
-    time: DateTime<Local>,
-    bucket_data: Vec<&Candle>,
-    duration: Duration,
-) -> Option<Candle> {
-    let open = bucket_data.first()?.open;
-    let close = bucket_data.last()?.close;
-    let high = bucket_data
-        .iter()
-        .map(|ohlc| ohlc.high)
-        .fold(f64::NEG_INFINITY, f64::max);
-    let low = bucket_data
-        .iter()
-        .map(|ohlc| ohlc.low)
-        .fold(f64::INFINITY, f64::min);
-    let volume = bucket_data.iter().map(|ohlc| ohlc.volume).sum();
-    Some(Candle {
-        time,
-        open,
-        high,
-        low,
-        close,
-        volume,
-        duration: duration.num_seconds(),
-    })
 }
 
 pub fn rsi(close: &[f64]) -> Vec<f64> {
@@ -63,7 +70,7 @@ pub fn ema(close: &[f64], len: u32) -> Vec<f64> {
 
 fn fill_na_gap(mut values: Vec<f64>, expected_len: usize) -> Vec<f64> {
     if values.len() < expected_len {
-        std::iter::repeat_n(f64::NAN, expected_len - values.len())
+        iter::repeat_n(f64::NAN, expected_len - values.len())
             .chain(values)
             .collect()
     } else if values.len() > expected_len {
@@ -116,6 +123,78 @@ pub fn check_trend(candles: &[Candle]) -> Trend {
         Trend::Bearish
     } else {
         Trend::None
+    }
+}
+
+pub fn naive_ts(time: DateTime<Local>) -> i64 {
+    time.naive_local().and_utc().timestamp()
+}
+
+pub fn cmp_f64(a: f64, b: f64) -> Ordering {
+    a.partial_cmp(&b).unwrap_or(Ordering::Equal)
+}
+
+pub fn find_min_max(levels: &mut Vec<PriceLevel>, df: &DataFrame) {
+    if let Some((at, price)) = df
+        .index()
+        .iter()
+        .enumerate()
+        .map(|(i, &idx)| (idx, df["low"][i]))
+        .min_by(|(_, l1), (_, l2)| cmp_f64(*l1, *l2))
+    {
+        levels.push(PriceLevel::new(price, at));
+    }
+    if let Some((at, price)) = df
+        .index()
+        .iter()
+        .enumerate()
+        .map(|(i, &idx)| (idx, df["high"][i]))
+        .max_by(|(_, l1), (_, l2)| cmp_f64(*l1, *l2))
+    {
+        levels.push(PriceLevel::new(price, at));
+    }
+}
+
+pub fn dedupe_price_levels(mut levels: Vec<PriceLevel>, threshold: f64) -> Vec<PriceLevel> {
+    if APP_CONFIG.trade_config.sr_use_sorting {
+        levels.sort_by(|p1, p2| match cmp_f64(p1.price, p2.price) {
+            Ordering::Equal => p1.at.cmp(&p2.at),
+            x => x,
+        });
+
+        let mut filtered_levels = Vec::with_capacity(levels.len());
+        if !levels.is_empty() {
+            filtered_levels.push(levels[0]);
+            for next in levels.into_iter().skip(1) {
+                let prev = filtered_levels.last().unwrap();
+                if (prev.price - next.price).abs() < threshold {
+                    if next.at > prev.at {
+                        filtered_levels.pop();
+                        filtered_levels.push(next);
+                    }
+                } else {
+                    filtered_levels.push(next);
+                }
+            }
+        }
+        filtered_levels
+    } else {
+        let mut ignored = FxHashSet::default();
+        for (i, cur) in levels.iter().enumerate() {
+            if ignored.contains(&i) {
+                continue;
+            }
+            for (j, next) in levels.iter().enumerate().skip(i + 1) {
+                if (cur.price - next.price).abs() < threshold {
+                    ignored.insert(j);
+                }
+            }
+        }
+        levels
+            .into_iter()
+            .enumerate()
+            .filter_map(|(i, level)| (!ignored.contains(&i)).then_some(level))
+            .collect()
     }
 }
 

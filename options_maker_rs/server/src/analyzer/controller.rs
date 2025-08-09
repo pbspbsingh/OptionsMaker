@@ -1,19 +1,16 @@
-use crate::analyzer::chart::Chart;
-use crate::analyzer::dataframe::DataFrame;
-use crate::analyzer::support_resistance::{
-    PriceRejection, check_resistance, check_support, threshold,
-};
-use crate::analyzer::utils;
+use super::chart::Chart;
+use super::dataframe::DataFrame;
+use super::support_resistance::{PriceRejection, check_resistance, check_support, threshold};
+use super::utils;
+
 use crate::websocket;
 use app_config::APP_CONFIG;
 use chrono::{DateTime, Duration, Local, NaiveDateTime};
 use itertools::Itertools;
 use rand::{Rng, rng};
-use rustc_hash::FxHashSet;
 use schwab_client::{Candle, Quote};
 use serde::Serialize;
 use serde_json::json;
-use std::cmp::Ordering;
 use tracing::debug;
 
 pub struct Controller {
@@ -38,9 +35,9 @@ pub enum Trend {
 
 #[derive(Copy, Clone, Debug, Serialize)]
 pub struct PriceLevel {
-    price: f64,
-    is_active: bool,
-    at: NaiveDateTime,
+    pub price: f64,
+    pub is_active: bool,
+    pub at: NaiveDateTime,
 }
 
 #[derive(Clone, Debug, Serialize)]
@@ -199,12 +196,12 @@ impl Controller {
             });
 
             let mut levels = Vec::new();
-            find_min_max(&mut levels, &regular_hours); // High lows for yesterday
-            find_min_max(&mut levels, &extended_hours); // High lows for overnight session
-            find_min_max(&mut levels, &data_frame.trim_working_days(5)); // High lows for week
-            find_min_max(&mut levels, &data_frame.trim_working_days(20)); // High lows for month
+            utils::find_min_max(&mut levels, &regular_hours); // High lows for yesterday
+            utils::find_min_max(&mut levels, &extended_hours); // High lows for overnight session
+            utils::find_min_max(&mut levels, &data_frame.trim_working_days(5)); // High lows for week
+            utils::find_min_max(&mut levels, &data_frame.trim_working_days(20)); // High lows for month
 
-            self.price_levels = remove_near_price_levels(levels, threshold(last.close))
+            self.price_levels = utils::dedupe_price_levels(levels, threshold(last.close))
         }
     }
 
@@ -242,7 +239,7 @@ impl Controller {
                     }
                 })
                 .sorted_by(|l1, l2| {
-                    cmp_f64((last.close - l1.price).abs(), (last.close - l2.price).abs())
+                    utils::cmp_f64((last.close - l1.price).abs(), (last.close - l2.price).abs())
                 })
                 .next()?;
             price_level.is_active = true;
@@ -276,105 +273,36 @@ impl Controller {
                 is_imminent: rejection.is_imminent,
                 found_at: timestamp,
                 ended: false,
-                points: create_chart_points(&rejection, timestamp),
+                points: Self::create_chart_points(&rejection, timestamp),
             };
             self.rejection = Some(rejection);
         }
         Some(())
     }
-}
 
-fn create_chart_points(rejection: &PriceRejection, timestamp: DateTime<Local>) -> Vec<(i64, f64)> {
-    let is_bullish = rejection.trend == Trend::Bullish;
-    vec![
-        (
-            ts(rejection.arriving_from.time),
-            if is_bullish {
-                rejection.arriving_from.high
-            } else {
-                rejection.arriving_from.low
-            },
-        ),
-        (
-            ts(rejection.rejected_at.time),
-            if is_bullish {
-                rejection.rejected_at.low
-            } else {
-                rejection.rejected_at.high
-            },
-        ),
-        (ts(timestamp), rejection.now.close),
-    ]
-}
-
-fn ts(time: DateTime<Local>) -> i64 {
-    time.naive_local().and_utc().timestamp()
-}
-
-fn cmp_f64(a: f64, b: f64) -> Ordering {
-    a.partial_cmp(&b).unwrap_or(Ordering::Equal)
-}
-
-fn find_min_max(levels: &mut Vec<PriceLevel>, df: &DataFrame) {
-    if let Some((at, price)) = df
-        .index()
-        .iter()
-        .enumerate()
-        .map(|(i, &idx)| (idx, df["low"][i]))
-        .min_by(|(_, l1), (_, l2)| cmp_f64(*l1, *l2))
-    {
-        levels.push(PriceLevel::new(price, at));
-    }
-    if let Some((at, price)) = df
-        .index()
-        .iter()
-        .enumerate()
-        .map(|(i, &idx)| (idx, df["high"][i]))
-        .max_by(|(_, l1), (_, l2)| cmp_f64(*l1, *l2))
-    {
-        levels.push(PriceLevel::new(price, at));
-    }
-}
-
-fn remove_near_price_levels(mut levels: Vec<PriceLevel>, threshold: f64) -> Vec<PriceLevel> {
-    if APP_CONFIG.trade_config.sr_use_sorting {
-        levels.sort_by(|p1, p2| match cmp_f64(p1.price, p2.price) {
-            Ordering::Equal => p1.at.cmp(&p2.at),
-            x => x,
-        });
-
-        let mut filtered_levels = Vec::with_capacity(levels.len());
-        if !levels.is_empty() {
-            filtered_levels.push(levels[0]);
-            for next in levels.into_iter().skip(1) {
-                let prev = filtered_levels.last().unwrap();
-                if (prev.price - next.price).abs() < threshold {
-                    if next.at > prev.at {
-                        filtered_levels.pop();
-                        filtered_levels.push(next);
-                    }
+    fn create_chart_points(
+        rejection: &PriceRejection,
+        timestamp: DateTime<Local>,
+    ) -> Vec<(i64, f64)> {
+        let is_bullish = rejection.trend == Trend::Bullish;
+        vec![
+            (
+                utils::naive_ts(rejection.arriving_from.time),
+                if is_bullish {
+                    rejection.arriving_from.high
                 } else {
-                    filtered_levels.push(next);
-                }
-            }
-        }
-        filtered_levels
-    } else {
-        let mut ignored = FxHashSet::default();
-        for (i, cur) in levels.iter().enumerate() {
-            if ignored.contains(&i) {
-                continue;
-            }
-            for (j, next) in levels.iter().enumerate().skip(i + 1) {
-                if (cur.price - next.price).abs() < threshold {
-                    ignored.insert(j);
-                }
-            }
-        }
-        levels
-            .into_iter()
-            .enumerate()
-            .filter_map(|(i, level)| (!ignored.contains(&i)).then_some(level))
-            .collect()
+                    rejection.arriving_from.low
+                },
+            ),
+            (
+                utils::naive_ts(rejection.rejected_at.time),
+                if is_bullish {
+                    rejection.rejected_at.low
+                } else {
+                    rejection.rejected_at.high
+                },
+            ),
+            (utils::naive_ts(timestamp), rejection.now.close),
+        ]
     }
 }

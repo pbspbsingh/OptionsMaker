@@ -6,9 +6,9 @@ mod support_resistance;
 mod trend_processor;
 mod utils;
 
-use crate::analyzer::controller::{Controller, PriceLevel};
 use crate::websocket;
 use app_config::APP_CONFIG;
+use controller::{Controller, PriceLevel};
 use data_provider::provider;
 use rustc_hash::FxHashMap;
 use schwab_client::Instrument;
