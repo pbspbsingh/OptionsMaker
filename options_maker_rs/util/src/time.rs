@@ -1,3 +1,4 @@
+use app_config::APP_CONFIG;
 use chrono::{DateTime, Duration, Local, NaiveTime};
 use serde::{Deserialize, Deserializer};
 
@@ -25,6 +26,15 @@ where
 {
     let ts: Option<i64> = Deserialize::deserialize(deserializer)?;
     Ok(ts.map(|ts| from_ts(ts / 1000)))
+}
+
+pub fn regular_trading_hours() -> Duration {
+    let trading_hours = if APP_CONFIG.trade_config.use_extended_hour {
+        8
+    } else {
+        6
+    };
+    Duration::hours(trading_hours)
 }
 
 #[cfg(test)]

@@ -1,5 +1,4 @@
-use app_config::APP_CONFIG;
-use chrono::{Datelike, NaiveDate, NaiveDateTime, TimeDelta, Weekday};
+use chrono::{Datelike, NaiveDate, NaiveDateTime, Weekday};
 use itertools::Itertools;
 use schwab_client::Candle;
 use serde_json::{Map, Value};
@@ -91,11 +90,7 @@ impl DataFrame {
     }
 
     pub fn trim_working_days(&self, days: usize) -> Self {
-        let min_working_hours = TimeDelta::hours(if APP_CONFIG.trade_config.use_extended_hour {
-            8
-        } else {
-            6
-        });
+        let min_working_hours = util::time::regular_trading_hours();
         let work_days = self
             .index
             .iter()
@@ -120,8 +115,8 @@ impl DataFrame {
         }
 
         let days_to_keep = &work_days[(work_days.len() - days)..];
-        let min_day = days_to_keep.first().unwrap();
-        self.filtered(|_, idx| idx.date() >= *min_day)
+        let min_day = days_to_keep[0];
+        self.filtered(|_, idx| idx.date() >= min_day)
     }
 
     pub fn filtered(&self, filter: impl Fn(usize, NaiveDateTime) -> bool) -> Self {

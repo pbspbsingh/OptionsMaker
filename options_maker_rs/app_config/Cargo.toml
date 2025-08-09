@@ -5,6 +5,7 @@ edition = "2024"
 
 [dependencies]
 serde = { workspace = true }
-toml = "0.9"
 chrono = { workspace = true }
+
+toml = "0.9"
 

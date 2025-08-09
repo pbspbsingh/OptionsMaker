@@ -10,3 +10,5 @@ serde = { workspace = true }
 reqwest = { version = "0.12", default-features = false, features = ["rustls-tls", "cookies", "brotli", "gzip", "deflate", "json"] }
 
 tracing-subscriber = { version = "0", features = ["env-filter", "local-time"] }
+
+app_config = { path = "../app_config" }

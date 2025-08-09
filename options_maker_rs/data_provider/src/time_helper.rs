@@ -1,6 +1,5 @@
-use app_config::APP_CONFIG;
+use chrono::Datelike;
 use chrono::{DateTime, Local, NaiveDate, NaiveDateTime, Weekday};
-use chrono::{Datelike, TimeDelta};
 use schwab_client::Candle;
 
 pub fn split_by_last_work_day(candles: Vec<Candle>) -> (Vec<Candle>, Vec<Candle>) {
@@ -35,11 +34,7 @@ fn is_working_day(date: NaiveDate, candles: &[Candle]) -> bool {
     if matches!(date.weekday(), Weekday::Sat | Weekday::Sun) {
         return false;
     }
-    let min_working_hours = TimeDelta::hours(if APP_CONFIG.trade_config.use_extended_hour {
-        8
-    } else {
-        6
-    });
+    let min_working_hours = util::time::regular_trading_hours();
     let first = candles
         .iter()
         .find(|candle| candle.time.date_naive() == date);
