@@ -1,17 +1,24 @@
-use crate::analyzer::dataframe::DataFrame;
-use crate::analyzer::trend_processor::Param;
+use super::dataframe::DataFrame;
 use chrono::{Duration, NaiveDateTime};
 use schwab_client::Candle;
-
 use ta_lib::overlap::ema;
 
+pub struct VolumeAnalysisParam<'a> {
+    pub candles: &'a [Candle],
+    pub df: &'a DataFrame,
+    pub tf: Duration,
+    pub output: &'a mut Vec<String>,
+}
+
+pub type VolumeAnalyzer = fn(param: VolumeAnalysisParam);
+
 pub fn rvol(
-    Param {
+    VolumeAnalysisParam {
         candles,
         tf,
         df,
         output,
-    }: Param,
+    }: VolumeAnalysisParam,
 ) {
     let volumes = &df["volume"];
     if volumes.len() <= 2 {
@@ -33,12 +40,12 @@ pub fn rvol(
 }
 
 pub fn cur_time_vol(
-    Param {
+    VolumeAnalysisParam {
         candles,
         tf,
         df,
         output,
-    }: Param,
+    }: VolumeAnalysisParam,
 ) {
     let norm_vol = normalized_volume(candles, df, tf);
     let avg_volume = avg_volume_other_days(df, *df.index().last().unwrap());

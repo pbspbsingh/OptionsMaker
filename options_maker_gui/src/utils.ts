@@ -22,8 +22,6 @@ export const extractKey = (price: Price, name: keyof Price): { time: UTCTimestam
     value: price[name] != null ? price[name] : undefined,
 });
 
-export const priceToMa = (price: Price): { time: UTCTimestamp, value?: number } => extractKey(price, "ma");
-
 export function useLastPrice(ticker: string): number {
     const { symbols, quotes } = useContext(AppStateContext);
 

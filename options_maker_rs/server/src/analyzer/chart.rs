@@ -1,8 +1,9 @@
-use crate::analyzer::controller::Trend;
-use crate::analyzer::dataframe::DataFrame;
-use crate::analyzer::divergence::{Divergence, find_divergence};
-use crate::analyzer::trend_processor::{Param, TrendProcessor, volume};
-use crate::analyzer::utils;
+use super::controller::Trend;
+use super::dataframe::DataFrame;
+use super::divergence::{Divergence, find_divergence};
+use super::utils;
+use super::volume::{self, VolumeAnalysisParam, VolumeAnalyzer};
+
 use app_config::ChartConfig;
 use chrono::Duration;
 use schwab_client::Candle;
@@ -14,25 +15,27 @@ pub struct Chart {
     days: usize,
     ema_len: u32,
     dataframe: DataFrame,
-    filters: Vec<TrendProcessor>,
+    vol_analyzers: Vec<VolumeAnalyzer>,
     messages: Vec<String>,
     use_divergence: bool,
     divergences: Vec<Divergence>,
+    use_vwap: bool,
 }
 
 impl Chart {
     pub fn new(candles: &[Candle], cf: &ChartConfig) -> Self {
-        let filters = vec![volume::rvol, volume::cur_time_vol];
+        let analyzers = vec![volume::cur_time_vol, volume::rvol];
         let aggregated = utils::aggregate(candles, cf.timeframe);
         Self {
             duration: cf.timeframe,
             days: cf.days as usize,
             ema_len: cf.ema,
             dataframe: DataFrame::from_candles(&aggregated),
-            filters,
+            vol_analyzers: analyzers,
             messages: vec![],
             use_divergence: cf.use_divergence,
             divergences: vec![],
+            use_vwap: cf.use_vwap,
         }
     }
 
@@ -44,7 +47,7 @@ impl Chart {
 
         self.dataframe = self.dataframe.trim_working_days(self.days);
 
-        self.process_trend(candles);
+        self.analyze_volume(candles);
         if self.use_divergence {
             self.compute_divergence(trend);
         }
@@ -57,13 +60,47 @@ impl Chart {
 
         self.dataframe.insert_column("rsi", rsi).unwrap();
         self.dataframe.insert_column("ma", ema).unwrap();
+        if self.use_vwap {
+            self.dataframe
+                .insert_column("vwap", self.compute_vwap())
+                .unwrap();
+        }
     }
 
-    fn process_trend(&mut self, candles: &[Candle]) {
+    fn compute_vwap(&self) -> Vec<f64> {
+        let index = self.dataframe.index();
+        let close = &self.dataframe["close"];
+        let volume = &self.dataframe["volume"];
+        if index.is_empty() {
+            return Vec::new();
+        }
+
+        let mut vwap = Vec::with_capacity(index.len());
+
+        let mut prev_time = self.dataframe.index()[0];
+        let mut cumulative_price = close[0] * volume[0];
+        let mut cumulative_vol = volume[0];
+        vwap.push(cumulative_price / cumulative_vol);
+
+        for (i, &time) in self.dataframe.index().iter().skip(1).enumerate() {
+            if prev_time.date() == time.date() {
+                cumulative_price += close[i] * volume[i];
+                cumulative_vol += volume[i];
+            } else {
+                cumulative_price = close[i] * volume[i];
+                cumulative_vol = volume[i];
+            }
+            vwap.push(cumulative_price / cumulative_vol);
+            prev_time = time;
+        }
+        vwap
+    }
+
+    fn analyze_volume(&mut self, candles: &[Candle]) {
         self.messages.clear();
 
-        for filter in &self.filters {
-            filter(Param {
+        for analyzer in &self.vol_analyzers {
+            analyzer(VolumeAnalysisParam {
                 candles,
                 df: &self.dataframe,
                 tf: self.duration,

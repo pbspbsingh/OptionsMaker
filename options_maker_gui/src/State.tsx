@@ -43,7 +43,7 @@ export type Price = {
     volume: number,
     rsi?: number,
     ma?: number,
-    bbw?: number,
+    vwap?: number,
 };
 
 export type PriceLevel = {

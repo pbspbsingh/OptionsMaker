@@ -7,14 +7,15 @@ import {
     type IPriceLine,
     type ISeriesApi,
     type SeriesMarkerPrice,
-    type Time
+    type Time,
+    LineStyle
 } from "lightweight-charts";
 import type {
     Divergence,
     Price,
     Rejection
 } from "../State";
-import { priceToMa, extractKey } from "../utils";
+import { extractKey } from "../utils";
 import { deepEqual } from "../compare";
 
 export interface BottomBarParams {
@@ -87,25 +88,32 @@ export function useBottomBar({ chartRef, prices, name, bottomIdx, bracket, color
     }, [bottomLineRef, bracket])
 }
 
-export function useMA(chartRef: React.RefObject<IChartApi | null>, prices: Price[]) {
+export function useMA(
+    chartRef: React.RefObject<IChartApi | null>,
+    prices: Price[],
+    maName: keyof Price,
+    color: string = 'rgba(154, 90, 237, 1)',
+    lineStyle: LineStyle = LineStyle.Solid,
+) {
     const maLineRef = useRef<ISeriesApi<"Line">>(null);
 
     useEffect(() => {
         const chart = chartRef.current;
         if (chart == null) return;
 
-        if (prices.length > 0 && prices[prices.length - 1].ma != null) {
+        if (prices.length > 0 && prices[prices.length - 1][maName] != null) {
             maLineRef.current = chart.addSeries(
                 LineSeries,
                 {
-                    color: 'rgb(144, 86, 222)',
+                    color,
+                    lineStyle,
                     lastValueVisible: false,
                     priceLineVisible: false,
                     lineWidth: 1,
                 },
                 0,
             );
-            maLineRef.current.setData(prices.map(priceToMa))
+            maLineRef.current.setData(prices.map(p => extractKey(p, maName)));
         }
         return () => { maLineRef.current = null; };
     }, [chartRef]);
@@ -118,9 +126,9 @@ export function useMA(chartRef: React.RefObject<IChartApi | null>, prices: Price
             const maData = maLine.data();
             const last = prices[prices.length - 1];
             if (maData.length === 0 || last.time as number < (maData[maData.length - 1].time as number)) {
-                maLine.setData(prices.map(priceToMa))
+                maLine.setData(prices.map(p => extractKey(p, maName)))
             } else {
-                maLine.update(priceToMa(last));
+                maLine.update(extractKey(last, maName));
             }
         }
     }, [maLineRef, prices]);

@@ -4,8 +4,8 @@ mod dataframe;
 mod divergence;
 mod gap_fill;
 mod support_resistance;
-mod trend_processor;
 mod utils;
+mod volume;
 
 use crate::websocket;
 use app_config::APP_CONFIG;

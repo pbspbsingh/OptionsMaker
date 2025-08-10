@@ -7,6 +7,7 @@ import {
     type DeepPartial,
     HistogramSeries,
     CrosshairMode,
+    LineStyle,
 } from "lightweight-charts";
 
 import { useEffect, useRef } from "react";
@@ -84,7 +85,8 @@ export default function Chart({ chart, priceLevels, onPriceLevelUpdate, rejectio
         }
     }, [chartRef, chart.prices]);
 
-    useMA(chartRef, chart.prices);
+    useMA(chartRef, chart.prices, "ma");
+    useMA(chartRef, chart.prices, "vwap", 'rgba(202, 229, 250, 1)', LineStyle.SparseDotted);
     useBottomBar({
         chartRef,
         prices: chart.prices,
