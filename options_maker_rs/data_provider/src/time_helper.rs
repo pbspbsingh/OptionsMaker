@@ -1,6 +1,6 @@
-use chrono::Datelike;
-use chrono::{DateTime, Local, NaiveDate, NaiveDateTime, Weekday};
+use chrono::{DateTime, Local, NaiveDate, NaiveDateTime};
 use schwab_client::Candle;
+use util::time::TradingDay;
 
 pub fn split_by_last_work_day(candles: Vec<Candle>) -> (Vec<Candle>, Vec<Candle>) {
     if candles.is_empty() {
@@ -30,10 +30,10 @@ fn get_last_working_day(candles: &[Candle]) -> NaiveDate {
 }
 
 fn is_working_day(date: NaiveDate, candles: &[Candle]) -> bool {
-    // Skip weekends
-    if matches!(date.weekday(), Weekday::Sat | Weekday::Sun) {
-        return false;
+    if date.is_weekend() {
+        return false; // Skip weekends
     }
+
     let min_working_hours = util::time::regular_trading_hours();
     let first = candles
         .iter()

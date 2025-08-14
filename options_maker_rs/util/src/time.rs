@@ -1,5 +1,5 @@
 use app_config::APP_CONFIG;
-use chrono::{DateTime, Duration, Local, NaiveTime};
+use chrono::{DateTime, Datelike, Duration, Local, NaiveDate, NaiveTime, Weekday};
 use serde::{Deserialize, Deserializer};
 
 #[inline]
@@ -35,6 +35,21 @@ pub fn regular_trading_hours() -> Duration {
         6
     };
     Duration::hours(trading_hours)
+}
+
+pub trait TradingDay {
+    fn is_weekend(&self) -> bool;
+
+    fn is_trading_day(&self) -> bool {
+        !self.is_weekend()
+    }
+}
+
+impl TradingDay for NaiveDate {
+    fn is_weekend(&self) -> bool {
+        let week_day = self.weekday();
+        week_day == Weekday::Sat || week_day == Weekday::Sun
+    }
 }
 
 #[cfg(test)]

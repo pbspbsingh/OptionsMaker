@@ -43,7 +43,6 @@ pub struct TradeConfig {
     pub use_tick_data: bool,
     #[serde(deserialize_with = "parse_trading_hours")]
     pub trading_hours: (NaiveTime, NaiveTime),
-    pub sr_use_sorting: bool,
     pub sr_threshold_perc: f64,
     pub sr_threshold_max: f64,
 }

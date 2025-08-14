@@ -1,4 +1,4 @@
-use chrono::{Datelike, NaiveDate, NaiveDateTime, Weekday};
+use chrono::{NaiveDate, NaiveDateTime};
 use itertools::Itertools;
 use schwab_client::Candle;
 use serde_json::{Map, Value};
@@ -6,6 +6,7 @@ use std::fmt::{Debug, Display, Write};
 
 use rustc_hash::FxHashMap;
 use std::ops::Index;
+use util::time::TradingDay;
 
 #[derive(Clone)]
 pub struct DataFrame {
@@ -104,7 +105,7 @@ impl DataFrame {
                 },
             )
             .into_iter()
-            .filter(|(key, ..)| key.weekday() != Weekday::Sat && key.weekday() != Weekday::Sun)
+            .filter(|(key, ..)| key.is_trading_day())
             .map(|(key, (min, max))| (key, max - min))
             .filter(|(_, diff)| *diff >= min_working_hours)
             .map(|(key, _)| key)

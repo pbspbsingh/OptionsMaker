@@ -1,7 +1,6 @@
 use super::controller::{PriceLevel, Trend};
 use super::dataframe::DataFrame;
 
-use app_config::APP_CONFIG;
 use chrono::{DateTime, Duration, Local};
 use rustc_hash::FxHashSet;
 use schwab_client::Candle;
@@ -155,47 +154,23 @@ pub fn find_min_max(levels: &mut Vec<PriceLevel>, df: &DataFrame) {
     }
 }
 
-pub fn dedupe_price_levels(mut levels: Vec<PriceLevel>, threshold: f64) -> Vec<PriceLevel> {
-    if APP_CONFIG.trade_config.sr_use_sorting {
-        levels.sort_by(|p1, p2| match cmp_f64(p1.price, p2.price) {
-            Ordering::Equal => p1.at.cmp(&p2.at),
-            x => x,
-        });
-
-        let mut filtered_levels = Vec::with_capacity(levels.len());
-        if !levels.is_empty() {
-            filtered_levels.push(levels[0]);
-            for next in levels.into_iter().skip(1) {
-                let prev = filtered_levels.last().unwrap();
-                if (prev.price - next.price).abs() < threshold {
-                    if next.at > prev.at {
-                        filtered_levels.pop();
-                        filtered_levels.push(next);
-                    }
-                } else {
-                    filtered_levels.push(next);
-                }
+pub fn dedupe_price_levels(levels: Vec<PriceLevel>, threshold: f64) -> Vec<PriceLevel> {
+    let mut ignored = FxHashSet::default();
+    for (i, cur) in levels.iter().enumerate() {
+        if ignored.contains(&i) {
+            continue;
+        }
+        for (j, next) in levels.iter().enumerate().skip(i + 1) {
+            if (cur.price - next.price).abs() < threshold {
+                ignored.insert(j);
             }
         }
-        filtered_levels
-    } else {
-        let mut ignored = FxHashSet::default();
-        for (i, cur) in levels.iter().enumerate() {
-            if ignored.contains(&i) {
-                continue;
-            }
-            for (j, next) in levels.iter().enumerate().skip(i + 1) {
-                if (cur.price - next.price).abs() < threshold {
-                    ignored.insert(j);
-                }
-            }
-        }
-        levels
-            .into_iter()
-            .enumerate()
-            .filter_map(|(i, level)| (!ignored.contains(&i)).then_some(level))
-            .collect()
     }
+    levels
+        .into_iter()
+        .enumerate()
+        .filter_map(|(i, level)| (!ignored.contains(&i)).then_some(level))
+        .collect()
 }
 
 /// Apply Gaussian smoothing to a 1D signal

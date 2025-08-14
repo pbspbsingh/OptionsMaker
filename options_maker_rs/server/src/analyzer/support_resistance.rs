@@ -27,7 +27,7 @@ pub fn check_support(candles: &[Candle], support: f64, atr: f64) -> Option<Price
     let last_green = last_green?;
     if !(candles[len - 1].is_green()
         && candles[len - 1].close >= support
-        && (candles[len - 1].close - candles[last_green].open).abs() > atr)
+        && (candles[len - 1].close - candles[last_green].open).abs() >= atr * 0.8)
     {
         return None;
     }
