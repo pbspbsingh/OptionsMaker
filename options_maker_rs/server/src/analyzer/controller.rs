@@ -239,7 +239,7 @@ impl Controller {
             let atr = self.charts.first().and_then(Chart::atr)?;
 
             let mut is_gap_fill = false;
-            let rejection = self.gap_fill.check_sr(&candles, atr);
+            let rejection = self.gap_fill.check_sr(trend, &candles, atr);
             if rejection.is_some() {
                 is_gap_fill = true;
             }
