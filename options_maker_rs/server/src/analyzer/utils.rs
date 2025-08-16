@@ -111,9 +111,18 @@ pub fn check_trend(candles: &[Candle]) -> Trend {
         return Trend::None;
     }
 
-    let prices = [*four_hours.last().unwrap()]
+    let five_mins = aggregate(candles, Duration::minutes(5));
+    let five_mins = _ema(&five_mins, 20);
+    if five_mins.is_empty() {
+        return Trend::None;
+    }
+
+    let prices = four_hours
+        .last()
+        .copied()
         .into_iter()
         .chain(one_hours[one_hours.len() - EMA_200_LEN..].iter().copied())
+        .chain(five_mins.last().copied())
         .chain(candles.last().map(|c| c.close))
         .collect::<Vec<_>>();
     if _trending(&prices, true) {
