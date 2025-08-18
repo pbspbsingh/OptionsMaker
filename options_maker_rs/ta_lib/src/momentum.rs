@@ -1,5 +1,6 @@
 use crate::ta::*;
 use crate::{Result, TALibError};
+use std::ffi::c_int;
 
 /// Average Directional Movement Index
 pub fn adx(high: &[f64], low: &[f64], close: &[f64], time_period: i32) -> Result<Vec<f64>> {
@@ -172,4 +173,50 @@ pub fn stoch(
             "STOCH calculation failed".to_string(),
         ))
     }
+}
+
+pub fn stoch_rsi(
+    input: &[f64],
+    time_period: i32,
+    fast_k_period: i32,
+    fast_d_period: i32,
+    fast_d_ma_type: TA_MAType,
+) -> Result<(Vec<f64>, Vec<f64>)> {
+    if input.is_empty() {
+        return Err(TALibError::InvalidInput("Empty input data".to_string()));
+    }
+
+    let start_idx = 0;
+    let end_idx = (input.len() - 1) as c_int;
+
+    let mut out_begin_idx: c_int = 0;
+    let mut out_nb_element: c_int = 0;
+    let mut out_fast_k = vec![0.0; input.len()];
+    let mut out_fast_d = vec![0.0; input.len()];
+
+    let ret_code = unsafe {
+        TA_STOCHRSI(
+            start_idx,
+            end_idx,
+            input.as_ptr(),
+            time_period as c_int,
+            fast_k_period as c_int,
+            fast_d_period as c_int,
+            fast_d_ma_type,
+            &mut out_begin_idx,
+            &mut out_nb_element,
+            out_fast_k.as_mut_ptr(),
+            out_fast_d.as_mut_ptr(),
+        )
+    };
+
+    if ret_code != TA_RetCode_TA_SUCCESS || out_nb_element <= 0 {
+        return Err(TALibError::CalculationError(
+            "STOCH calculation failed".to_string(),
+        ));
+    }
+
+    out_fast_k.truncate(out_nb_element as usize);
+    out_fast_d.truncate(out_nb_element as usize);
+    Ok((out_fast_k, out_fast_d))
 }

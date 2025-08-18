@@ -4,63 +4,57 @@ use super::divergence::{Divergence, find_divergence};
 use super::utils;
 use super::volume::{self, VolumeAnalysisParam, VolumeAnalyzer};
 
-use app_config::ChartConfig;
-use chrono::Duration;
+use app_config::{ChartConfig, DivIndicator};
 use schwab_client::Candle;
 use serde_json::{Value, json};
 use ta_lib::volatility;
 
 pub struct Chart {
-    duration: Duration,
-    days: usize,
-    ema_len: u32,
+    config: &'static ChartConfig,
     dataframe: DataFrame,
     vol_analyzers: Vec<VolumeAnalyzer>,
     messages: Vec<String>,
-    use_divergence: bool,
     divergences: Vec<Divergence>,
-    use_vwap: bool,
 }
 
 impl Chart {
-    pub fn new(candles: &[Candle], cf: &ChartConfig) -> Self {
+    pub fn new(candles: &[Candle], config: &'static ChartConfig) -> Self {
         let analyzers = vec![volume::cur_time_vol, volume::rvol];
-        let aggregated = utils::aggregate(candles, cf.timeframe);
+        let aggregated = utils::aggregate(candles, config.timeframe);
         Self {
-            duration: cf.timeframe,
-            days: cf.days as usize,
-            ema_len: cf.ema,
+            config,
             dataframe: DataFrame::from_candles(&aggregated),
             vol_analyzers: analyzers,
             messages: vec![],
-            use_divergence: cf.use_divergence,
             divergences: vec![],
-            use_vwap: cf.use_vwap,
         }
     }
 
     pub fn update(&mut self, candles: &[Candle], trend: Trend) {
-        let aggregated = utils::aggregate(candles, self.duration);
+        let aggregated = utils::aggregate(candles, self.config.timeframe);
         self.dataframe = DataFrame::from_candles(&aggregated);
 
         self.compute_indicators();
 
-        self.dataframe = self.dataframe.trim_working_days(self.days);
+        self.dataframe = self.dataframe.trim_working_days(self.config.days);
 
         self.analyze_volume(candles);
-        if self.use_divergence {
+        if self.config.use_divergence {
             self.compute_divergence(trend);
         }
     }
 
     fn compute_indicators(&mut self) {
         let close = &self.dataframe["close"];
-        let rsi = utils::rsi(close);
-        let ema = utils::ema(close, self.ema_len);
+        let ema = utils::ema(close, self.config.ema);
+        let rsi = match self.config.div_indicator {
+            DivIndicator::Rsi => utils::rsi(close),
+            DivIndicator::Stochastic => utils::stoch(&self.dataframe),
+        };
 
-        self.dataframe.insert_column("rsi", rsi).unwrap();
         self.dataframe.insert_column("ma", ema).unwrap();
-        if self.use_vwap {
+        self.dataframe.insert_column("rsi", rsi).unwrap();
+        if self.config.use_vwap {
             self.dataframe
                 .insert_column("vwap", self.compute_vwap())
                 .unwrap();
@@ -103,7 +97,7 @@ impl Chart {
             analyzer(VolumeAnalysisParam {
                 candles,
                 df: &self.dataframe,
-                tf: self.duration,
+                tf: self.config.timeframe,
                 output: &mut self.messages,
             });
         }
@@ -153,7 +147,7 @@ impl Chart {
             })
             .collect::<Vec<_>>();
         json!({
-            "timeframe": self.duration.num_seconds(),
+            "timeframe": self.config.timeframe.num_seconds(),
             "prices": self.dataframe.json(),
             "rsiBracket": [30, 70],
             "divergences": divergences,

@@ -7,7 +7,7 @@ use schwab_client::Candle;
 use std::cmp::Ordering;
 use std::collections::BTreeMap;
 use std::iter;
-use ta_lib::{momentum, overlap};
+use ta_lib::{momentum, overlap, ta};
 
 pub fn aggregate(candles: &[Candle], duration: Duration) -> Vec<Candle> {
     fn _truncate_time(candle: &Candle, duration: Duration) -> DateTime<Local> {
@@ -60,6 +60,21 @@ pub fn aggregate(candles: &[Candle], duration: Duration) -> Vec<Candle> {
 pub fn rsi(close: &[f64]) -> Vec<f64> {
     let rsi = momentum::rsi(close, 14).expect("Failed to compute rsi");
     fill_na_gap(rsi, close.len())
+}
+
+pub fn stoch(df: &DataFrame) -> Vec<f64> {
+    let (fast, _slow) = momentum::stoch(
+        &df["high"],
+        &df["low"],
+        &df["close"],
+        14,
+        3,
+        ta::TA_MAType_TA_MAType_SMA,
+        3,
+        ta::TA_MAType_TA_MAType_SMA,
+    )
+    .expect("Failed to compute stochastics");
+    fill_na_gap(fast, df.index().len())
 }
 
 pub fn ema(close: &[f64], len: u32) -> Vec<f64> {

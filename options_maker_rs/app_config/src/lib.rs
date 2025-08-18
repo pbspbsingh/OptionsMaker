@@ -14,6 +14,7 @@ pub static APP_CONFIG: LazyLock<AppConfig> = LazyLock::new(|| {
 });
 
 #[derive(Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct AppConfig {
     pub rust_log: String,
     pub openssl_cert_file: String,
@@ -36,8 +37,8 @@ pub struct AppConfig {
 }
 
 #[derive(Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct TradeConfig {
-    pub chart_configs: Vec<ChartConfig>,
     pub use_extended_hour: bool,
     pub look_back_days: u64,
     pub use_tick_data: bool,
@@ -45,18 +46,29 @@ pub struct TradeConfig {
     pub trading_hours: (NaiveTime, NaiveTime),
     pub sr_threshold_perc: f64,
     pub sr_threshold_max: f64,
+    pub chart_configs: Vec<ChartConfig>,
 }
 
 #[derive(Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct ChartConfig {
     #[serde(deserialize_with = "parse_timeframe")]
     pub timeframe: Duration,
-    pub days: u64,
+    pub days: usize,
     pub ema: u32,
     #[serde(default)]
     pub use_divergence: bool,
     #[serde(default)]
+    pub div_indicator: DivIndicator,
+    #[serde(default)]
     pub use_vwap: bool,
+}
+
+#[derive(Debug, Deserialize, Default)]
+pub enum DivIndicator {
+    #[default]
+    Rsi,
+    Stochastic,
 }
 
 fn parse_timeframe<'de, D: Deserializer<'de>>(deserializer: D) -> Result<Duration, D::Error> {
