@@ -101,7 +101,7 @@ export default function Ticker() {
         <div className="ticker">
             <header className="top-bar">
                 <h3>{ticker}{symbol.priceLevelsOverridden ? '*' : ''}</h3>
-                <span className="quote">Last: ${lastPrice.toFixed(2)}</span>
+                <span className="quote">Last: ${lastPrice.toFixed(2)} | {symbol.trend}</span>
                 <section className="quick-actions">
                     <TextEdit
                         initVal={priceLevels.sort((p1, p2) => p1.price - p2.price).map(p => p.price.toFixed(2)).join(', ')}

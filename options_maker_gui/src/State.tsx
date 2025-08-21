@@ -88,6 +88,7 @@ export type Chart = {
 export type Symbol = {
     symbol: string,
     lastUpdated: number,
+    trend: 'None' | 'Bearish' | 'Bullish',
     atr?: number,
     priceLevels: PriceLevel[],
     priceLevelsOverridden: boolean,

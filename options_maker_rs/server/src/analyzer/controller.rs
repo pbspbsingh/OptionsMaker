@@ -18,6 +18,7 @@ pub struct Controller {
     symbol: String,
     candles: Vec<Candle>,
     charts: Vec<Chart>,
+    trend: Trend,
     tick: Option<Candle>,
     tick_published: DateTime<Local>,
     tick_publish_delay: Duration,
@@ -76,6 +77,7 @@ impl Controller {
             symbol,
             candles,
             charts,
+            trend: Trend::None,
             tick: None,
             tick_published: util::time::now(),
             tick_publish_delay: Duration::milliseconds(tick_publish_delay_ms),
@@ -154,6 +156,7 @@ impl Controller {
             "lastUpdated": last_updated,
             "charts": charts,
             "atr": atr,
+            "trend": self.trend,
             "priceLevels": self.price_levels,
             "priceLevelsOverridden": self.price_levels_overriden,
             "rejection": self.rejection_msg,
@@ -162,13 +165,13 @@ impl Controller {
     }
 
     fn update_charts(&mut self, publish: bool) {
-        let trend = utils::check_trend(&self.candles);
+        self.trend = utils::check_trend(&self.candles);
         for chart in &mut self.charts {
-            chart.update(&self.candles, trend);
+            chart.update(&self.candles, self.trend);
         }
 
         self.update_price_levels();
-        self.find_support_resistance(trend);
+        self.find_support_resistance(self.trend);
 
         if publish {
             self.publish();

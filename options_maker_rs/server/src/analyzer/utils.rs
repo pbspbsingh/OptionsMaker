@@ -95,7 +95,7 @@ fn fill_na_gap(mut values: Vec<f64>, expected_len: usize) -> Vec<f64> {
     }
 }
 
-const EMA_200_LEN: usize = 4;
+const EMA_200_LEN: usize = 8;
 
 pub fn check_trend(candles: &[Candle]) -> Trend {
     fn _ema(candles: &[Candle], len: i32) -> Vec<f64> {
@@ -114,12 +114,6 @@ pub fn check_trend(candles: &[Candle]) -> Trend {
         true
     }
 
-    let four_hours = aggregate(candles, Duration::hours(4));
-    let four_hours = _ema(&four_hours, 100);
-    if four_hours.is_empty() {
-        return Trend::None;
-    }
-
     let one_hours = aggregate(candles, Duration::hours(1));
     let one_hours = _ema(&one_hours, 200);
     if one_hours.len() < EMA_200_LEN {
@@ -132,11 +126,9 @@ pub fn check_trend(candles: &[Candle]) -> Trend {
         return Trend::None;
     }
 
-    let prices = four_hours
-        .last()
+    let prices = one_hours[one_hours.len() - EMA_200_LEN..]
+        .iter()
         .copied()
-        .into_iter()
-        .chain(one_hours[one_hours.len() - EMA_200_LEN..].iter().copied())
         .chain(five_mins.last().copied())
         .chain(candles.last().map(|c| c.close))
         .collect::<Vec<_>>();

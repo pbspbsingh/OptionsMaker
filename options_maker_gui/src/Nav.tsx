@@ -131,11 +131,11 @@ export default function Nav(): JSX.Element {
                 <li><NavLink to="/trades">Trades</NavLink></li>
             </ul>
             <div className="tickers" onContextMenu={onContextMenu}>
-                <h6 className="uppercase">Tickers</h6>
+                <h6 className="uppercase">Tickers ({tickers.length})</h6>
                 <ul className="tickers">
                     {tickers.map(symbol => (
                         <li key={symbol}>
-                            <NavLink to={`/ticker/${symbol}`} className={navStyle(symbols[symbol])}>
+                            <NavLink to={`/ticker/${encodeURIComponent(symbol)}`} className={navStyle(symbols[symbol])}>
                                 <span className="symbol">{symbol}{symbols[symbol].priceLevelsOverridden ? '*' : ''}</span>&nbsp;
                                 | ${lastPrice(symbols[symbol]).toFixed(2)}&nbsp;
                                 | ${symbols[symbol].atr?.toFixed(2)}
