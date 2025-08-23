@@ -19,7 +19,7 @@ export default function Home() {
             <ul>
                 {srs.filter(({ rejection }) => !rejection.ended).map(({ ticker, rejection }) => (
                     <li key={ticker}>
-                        <Link to={`/ticker/${ticker}`} className={rejection.trend.toLowerCase()}>
+                        <Link to={`/ticker/${encodeURIComponent(ticker)}`} className={rejection.trend.toLowerCase()}>
                             {ticker}: {rejection.trend}, found at: {new Date(rejection.found_at).toLocaleString()}
                         </Link>
                     </li>
@@ -30,7 +30,7 @@ export default function Home() {
             <ul>
                 {srs.filter(({ rejection }) => rejection.ended).map(({ ticker, rejection }) => (
                     <li key={ticker}>
-                        <Link to={`/ticker/${ticker}`} className={rejection.trend.toLowerCase()}>
+                        <Link to={`/ticker/${encodeURIComponent(ticker)}`} className={rejection.trend.toLowerCase()}>
                             {ticker}: {rejection.trend} at: {new Date(rejection.found_at).toLocaleString()}
                         </Link>
                     </li>
@@ -45,7 +45,7 @@ export default function Home() {
                 <ul>
                     {gapFills.map(({ ticker, rejection }) => (
                         <li key={ticker}>
-                            <Link to={`/ticker/${ticker}`} className={rejection.trend.toLowerCase()}>
+                            <Link to={`/ticker/${encodeURIComponent(ticker)}`} className={rejection.trend.toLowerCase()}>
                                 {ticker}: {rejection.trend} at: {new Date(rejection.found_at).toLocaleString()}
                             </Link>
                         </li>
@@ -60,7 +60,7 @@ export default function Home() {
             <ul>
                 {divergences.map(div =>
                 (<li key={div.ticker}>
-                    <Link to={`/ticker/${div.ticker}`} title={div.type} className={div.type.toLowerCase()}>
+                    <Link to={`/ticker/${encodeURIComponent(div.ticker)}`} title={div.type} className={div.type.toLowerCase()}>
                         {div.ticker}: {div.start.toLocaleString()}-{div.end.toLocaleString()}
                     </Link>
                 </li>)

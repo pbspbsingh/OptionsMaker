@@ -22,8 +22,10 @@ export default function Ticker() {
     const [priceLevelsEdited, setPriceLevelsEdited] = useState(false);
 
     useEffect(() => {
+        const prevTitle = document.title;
         document.title = ticker;
         setPriceLevelsEdited(false);
+        return () => { document.title = prevTitle };
     }, [ticker]);
 
     useEffect(() => {

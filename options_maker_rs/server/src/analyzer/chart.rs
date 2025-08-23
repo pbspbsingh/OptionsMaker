@@ -4,7 +4,7 @@ use super::divergence::{Divergence, find_divergence};
 use super::utils;
 use super::volume::{self, VolumeAnalysisParam, VolumeAnalyzer};
 
-use app_config::{ChartConfig, DivIndicator};
+use app_config::{APP_CONFIG, ChartConfig, DivIndicator};
 use schwab_client::Candle;
 use serde_json::{Value, json};
 use ta_lib::volatility;
@@ -128,6 +128,24 @@ impl Chart {
         )
         .last()
         .copied()
+    }
+
+    pub fn price_change(&self) -> Option<f64> {
+        if self.dataframe.index().is_empty() {
+            return None;
+        }
+
+        let trade_start_time = APP_CONFIG.trade_config.trading_hours.0;
+        let (trade_start_idx, _start_time) = self
+            .dataframe
+            .index()
+            .iter()
+            .enumerate()
+            .rev()
+            .find(|(_, time)| time.time() < trade_start_time)?;
+        let trade_start_price = self.dataframe["close"][trade_start_idx];
+        let current_price = self.dataframe["close"][self.dataframe.index().len() - 1];
+        Some(current_price - trade_start_price)
     }
 
     pub fn json(&self) -> Value {

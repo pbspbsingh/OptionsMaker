@@ -150,16 +150,18 @@ impl Controller {
             .last()
             .map(|&Candle { time, duration, .. }| (time + Duration::seconds(duration)).timestamp());
         let atr = self.charts.last().and_then(Chart::atr);
+        let price_change = self.charts.first().and_then(Chart::price_change);
         let charts = self.charts.iter().map(Chart::json).collect::<Vec<_>>();
         let data = json!({
             "symbol": self.symbol,
             "lastUpdated": last_updated,
-            "charts": charts,
-            "atr": atr,
             "trend": self.trend,
+            "atr": atr,
+            "priceChange": price_change,
             "priceLevels": self.price_levels,
             "priceLevelsOverridden": self.price_levels_overriden,
             "rejection": self.rejection_msg,
+            "charts": charts,
         });
         websocket::publish("UPDATE_CHART", data);
     }

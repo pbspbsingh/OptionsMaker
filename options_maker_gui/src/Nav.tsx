@@ -1,4 +1,5 @@
 import {
+    useCallback,
     useContext,
     useEffect,
     useRef,
@@ -12,7 +13,7 @@ import {
     type Symbol,
 } from "./State";
 
-import { NavLink } from "react-router";
+import { NavLink, useLocation, useNavigate } from "react-router";
 import { Connected, NotConnected } from "./icons";
 import { useSnackbar, type SnackbarKey } from "notistack";
 import useNotifications from "./notifications";
@@ -32,6 +33,10 @@ export default function Nav(): JSX.Element {
     const [contextMenuLoc, setContextMenuLoc] = useState<{ top: number, left: number }>({ top: 0, left: 0 });
     const [showContextMenu, setShowContextMenu] = useState(false);
     const [selectedContextMenuItem, setSelectedContextMenuItem] = useState('');
+
+    const navMenuRef = useRef<HTMLUListElement>(null);
+    const { pathname } = useLocation();
+    const navigate = useNavigate();
 
     useNotifications();
 
@@ -57,7 +62,7 @@ export default function Nav(): JSX.Element {
         if (target.nodeName !== "A") {
             return;
         }
-        
+
         let symbol = target.querySelector('.symbol')?.innerHTML.trim();
         if (symbol == null) return;
         if (symbol.endsWith('*')) {
@@ -67,6 +72,19 @@ export default function Nav(): JSX.Element {
         setContextMenuLoc({ left: e.pageX, top: e.pageY });
         setShowContextMenu(true);
     };
+
+    useEffect(() => {
+        const { current: navMenu } = navMenuRef;
+        if (navMenu == null || !pathname.startsWith('/ticker/')) return;
+
+        const selectedItem = navMenu.querySelector('li a.active');
+        if (selectedItem != null) {
+            selectedItem.scrollIntoView({
+                behavior: 'smooth',
+                block: 'nearest'
+            });
+        }
+    }, [pathname]);
 
     const snackbarAction = (id: SnackbarKey) => (
         <button onClick={() => closeSnackbar(id)}>
@@ -85,7 +103,6 @@ export default function Nav(): JSX.Element {
             if (resp.status != 200) {
                 throw new Error(`Failed to add new ticker: ${await resp.text()}`)
             }
-            // showSnackbar(`Added ${newTicker} successfully!`, { action: snackbarAction });
             setNewTicker('');
             console.log(`Added ${newTicker} successfully!`);
         } catch (e) {
@@ -115,6 +132,45 @@ export default function Nav(): JSX.Element {
         }
     }
 
+    const keyDownListner = useRef<(e: KeyboardEvent) => void>(null);
+    const registerArrowNav = () => {
+        if (keyDownListner.current != null) {
+            console.warn('Holy shit, there is already a keyboard listner');
+            return;
+        }
+
+        keyDownListner.current = (e: KeyboardEvent) => {
+            if (!(e.key === 'ArrowUp' || e.key === 'ArrowDown')) return;
+
+            const selectedItemAnchor = navMenuRef.current?.querySelector('li a.active');
+            const selectedItem = selectedItemAnchor?.parentElement;
+            let nextItem: Element | undefined | null = null;
+            switch (e.key) {
+                case 'ArrowDown': {
+                    nextItem = selectedItem?.nextElementSibling;
+                    break;
+                }
+                case 'ArrowUp': {
+                    nextItem = selectedItem?.previousElementSibling;
+                    break;
+                }
+            }
+            const nextNavLink = nextItem?.querySelector('a')?.getAttribute('href');
+            if (nextNavLink != null) {
+                e.preventDefault();
+                navigate(nextNavLink);
+            }
+        };
+        document.addEventListener('keydown', keyDownListner.current);
+    };
+
+    const unregisterArrowNav = () => {
+        if (keyDownListner.current != null) {
+            document.removeEventListener('keydown', keyDownListner.current);
+            keyDownListner.current = null;
+        }
+    };
+
     return (
         <nav className="left-nav">
             <div className="account">
@@ -132,13 +188,13 @@ export default function Nav(): JSX.Element {
             </ul>
             <div className="tickers" onContextMenu={onContextMenu}>
                 <h6 className="uppercase">Tickers ({tickers.length})</h6>
-                <ul className="tickers">
+                <ul className="tickers" ref={navMenuRef} onFocus={registerArrowNav} onBlur={unregisterArrowNav}>
                     {tickers.map(symbol => (
                         <li key={symbol}>
                             <NavLink to={`/ticker/${encodeURIComponent(symbol)}`} className={navStyle(symbols[symbol])}>
                                 <span className="symbol">{symbol}{symbols[symbol].priceLevelsOverridden ? '*' : ''}</span>&nbsp;
                                 | ${lastPrice(symbols[symbol]).toFixed(2)}&nbsp;
-                                | ${symbols[symbol].atr?.toFixed(2)}
+                                | {symbols[symbol].priceChange < 0 ? '-' : ''}${Math.abs(symbols[symbol].priceChange).toFixed(2)}
                             </NavLink>
                         </li>
                     ))}
