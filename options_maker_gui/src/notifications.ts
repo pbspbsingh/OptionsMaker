@@ -25,8 +25,8 @@ export default function useNotifications() {
     const activeSymbols = useRef<Set<string>>(new Set());
     useEffect(() => {
         const { current: activeSupports } = activeSymbols;
-        for (const { symbol, rejection: { trend, ended, found_at } } of Object.values(symbols)) {
-            if (!(ended || trend === 'None' || activeSupports.has(symbol))) {
+        for (const { symbol, rejection: { trend, ended, found_at }, isFavorite } of Object.values(symbols)) {
+            if (!(ended || trend === 'None' || activeSupports.has(symbol) || !isFavorite)) {
                 if (permission === 'granted') {
                     console.log('Notifying', symbol, trend, found_at);
                     const notification = new Notification(`${symbol} is ${trend}`, {

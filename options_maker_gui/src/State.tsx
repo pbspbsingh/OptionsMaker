@@ -94,6 +94,7 @@ export type Symbol = {
     priceLevels: PriceLevel[],
     priceLevelsOverridden: boolean,
     rejection: Rejection,
+    isFavorite: boolean,
     charts: Chart[],
 };
 

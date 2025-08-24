@@ -43,6 +43,12 @@
             font-size: .9rem;
         }
 
+        li.favorite+li:not(.favorite) {
+            border-top: 1px solid var(--pico-muted-border-color);
+            margin-top: 0.5rem;
+            padding-top: 0.5rem;
+        }
+
         a {
             padding-inline: 1rem;
             color: var(--pico-color);

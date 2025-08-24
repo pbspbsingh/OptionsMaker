@@ -26,6 +26,7 @@ pub enum AnalyzerCmd {
     Publish,
     ReInitialize(Box<Controller>),
     Remove(String),
+    SetFavorite(String, bool),
 }
 
 pub async fn start_analysis() -> anyhow::Result<()> {
@@ -109,6 +110,13 @@ pub async fn start_analysis() -> anyhow::Result<()> {
                             }
                             websocket::publish("UPDATE_SYMBOLS", controllers.keys().collect::<Vec<_>>());
                         }
+                        AnalyzerCmd::SetFavorite(symbol, is_favorite) => {
+                            if let Some(controller) = controllers.get_mut(&symbol) {
+                                controller.set_favorite(is_favorite);
+                            } else {
+                                warn!("Unexpected favorite command for {symbol}");
+                            }
+                        }
                     }
                 }
             }
@@ -146,7 +154,13 @@ pub async fn init_controller(instrument: &Instrument) -> anyhow::Result<Controll
             instrument.symbol,
         );
     }
-    let mut controller = Controller::new(instrument.symbol.clone(), base_candles, price_levels);
+    let is_favorite = persist::groups::is_favorite(&instrument.symbol).await?;
+    let mut controller = Controller::new(
+        instrument.symbol.clone(),
+        base_candles,
+        price_levels,
+        is_favorite,
+    );
     for candle in update_candles {
         controller.on_new_candle(candle, false);
     }

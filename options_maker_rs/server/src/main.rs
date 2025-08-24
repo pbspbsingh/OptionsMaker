@@ -1,5 +1,6 @@
 mod analyzer;
 mod app_error;
+mod groups;
 mod ticker;
 mod websocket;
 
@@ -42,6 +43,7 @@ async fn main() -> anyhow::Result<()> {
 
     let api_routers = Router::new()
         .nest("/ticker", ticker::router())
+        .nest("/favorite", groups::router())
         .merge(websocket::router());
     let mut router = Router::new().nest("/api", api_routers);
     if let Some(asset_dir) = &APP_CONFIG.asset_dir

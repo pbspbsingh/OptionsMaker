@@ -22,7 +22,15 @@ import "./Nav.scss";
 export default function Nav(): JSX.Element {
     const { connected, account, symbols } = useContext(AppStateContext);
     const tickers = Object.keys(symbols);
-    tickers.sort();
+    tickers.sort((a, b) => {
+        const s1 = symbols[a];
+        const s2 = symbols[b];
+        if (s1.isFavorite === s2.isFavorite) {
+            return s1.symbol < s2.symbol ? -1 : 1;
+        } else {
+            return s1.isFavorite ? -1 : 1;
+        }
+    });
 
     const [newTicker, setNewTicker] = useState('');
     const [addingNewTicker, setAddingNewTicker] = useState(false);
@@ -129,7 +137,26 @@ export default function Nav(): JSX.Element {
                 showSnackbar(e.message, { action: snackbarAction });
             }
         }
-    }
+    };
+
+    const favTicker = async (fav: boolean) => {
+        setShowContextMenu(false);
+        try {
+            console.log(selectedContextMenuItem, fav);
+            const resp = await fetch(`/api/favorite/${encodeURIComponent(selectedContextMenuItem)}`, {
+                method: fav ? 'put' : 'delete'
+            });
+            if (resp.status != 200) {
+                throw new Error(`Failed to set favorite ticker: ${await resp.text()}`)
+            }
+            setSelectedContextMenuItem("");
+        } catch (e) {
+            console.warn(e);
+            if (e instanceof Error) {
+                showSnackbar(e.message, { action: snackbarAction });
+            }
+        }
+    };
 
     const keyDownListner = useRef<(e: KeyboardEvent) => void>(null);
     const registerArrowNav = () => {
@@ -189,7 +216,7 @@ export default function Nav(): JSX.Element {
                 <h6 className="uppercase">Tickers ({tickers.length})</h6>
                 <ul className="tickers" ref={navMenuRef} onFocus={registerArrowNav} onBlur={unregisterArrowNav}>
                     {tickers.map(symbol => (
-                        <li key={symbol}>
+                        <li key={symbol} className={symbols[symbol].isFavorite ? 'favorite' : ''}>
                             <NavLink to={`/ticker/${encodeURIComponent(symbol)}`} className={navStyle(symbols[symbol])}>
                                 <span className="symbol">{symbol}{symbols[symbol].priceLevelsOverridden ? '*' : ''}</span>&nbsp;
                                 | ${lastPrice(symbols[symbol]).toFixed(2)}&nbsp;
@@ -222,8 +249,13 @@ export default function Nav(): JSX.Element {
             >
                 <ul>
                     <li>
+                        <a href="#" onClick={e => { e.preventDefault(); favTicker(!symbols[selectedContextMenuItem]?.isFavorite); }}>
+                            {symbols[selectedContextMenuItem]?.isFavorite ? 'Unfavorite' : 'Favorite'} '{selectedContextMenuItem}'
+                        </a>
+                    </li>
+                    <li>
                         <a href="#" onClick={e => { e.preventDefault(); removeTicker(); }}>
-                            Remove "{selectedContextMenuItem}"
+                            Remove '{selectedContextMenuItem}'
                         </a>
                     </li>
                 </ul>
@@ -231,7 +263,6 @@ export default function Nav(): JSX.Element {
         </nav>
     );
 }
-
 
 const navStyle = (symbol: Symbol): string => {
     if (symbol.rejection.ended) {

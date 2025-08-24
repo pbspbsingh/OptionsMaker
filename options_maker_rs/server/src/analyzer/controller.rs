@@ -27,6 +27,7 @@ pub struct Controller {
     rejection: Option<PriceRejection>,
     gap_fill: GapFill,
     rejection_msg: RejectionMessage,
+    is_favorite: bool,
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Serialize)]
@@ -65,7 +66,12 @@ impl PriceLevel {
 }
 
 impl Controller {
-    pub fn new(symbol: String, candles: Vec<Candle>, price_levels: Vec<PriceLevel>) -> Self {
+    pub fn new(
+        symbol: String,
+        candles: Vec<Candle>,
+        price_levels: Vec<PriceLevel>,
+        is_favorite: bool,
+    ) -> Self {
         let charts = APP_CONFIG
             .trade_config
             .chart_configs
@@ -93,6 +99,7 @@ impl Controller {
                 found_at: DateTime::default(),
                 points: Vec::new(),
             },
+            is_favorite,
         }
     }
 
@@ -144,6 +151,11 @@ impl Controller {
         }
     }
 
+    pub fn set_favorite(&mut self, favorite: bool) {
+        self.is_favorite = favorite;
+        self.publish();
+    }
+
     pub fn publish(&self) {
         let last_updated = self
             .candles
@@ -161,6 +173,7 @@ impl Controller {
             "priceLevels": self.price_levels,
             "priceLevelsOverridden": self.price_levels_overriden,
             "rejection": self.rejection_msg,
+            "isFavorite": self.is_favorite,
             "charts": charts,
         });
         websocket::publish("UPDATE_CHART", data);
