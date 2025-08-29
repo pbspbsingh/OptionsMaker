@@ -6,11 +6,10 @@ use itertools::Itertools;
 use rustc_hash::FxHashMap;
 use serde::Deserialize;
 use serde_json::{Value, json};
-use std::sync::Arc;
 use std::sync::atomic::{AtomicU32, Ordering};
+use std::sync::{Arc, RwLock};
 use std::time::Instant;
 use tokio::net::TcpStream;
-use tokio::sync::RwLock;
 use tokio_tungstenite::tungstenite::Message;
 use tokio_tungstenite::{MaybeTlsStream, WebSocketStream, connect_async};
 use tracing::{debug, info, warn};
@@ -38,7 +37,7 @@ impl Streamer {
         access_token: Arc<RwLock<AccessToken>>,
     ) -> SchwabResult<(Self, WebSocketStream<MaybeTlsStream<TcpStream>>)> {
         let start = Instant::now();
-        let token = access_token.read().await.access_token.clone();
+        let token = access_token.read().unwrap().access_token.clone();
         let streamer_info = Self::fetch_streamer_info(&token).await?;
 
         info!(

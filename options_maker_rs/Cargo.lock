@@ -2092,7 +2092,6 @@ dependencies = [
  "app_config",
  "axum",
  "axum-server",
- "base64",
  "chrono",
  "futures",
  "itertools 0.14.0",

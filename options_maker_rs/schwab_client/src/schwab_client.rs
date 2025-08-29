@@ -7,10 +7,9 @@ use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use std::collections::HashMap;
 use std::fmt::Display;
-use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::{Arc, RwLock};
 use tokio::fs;
-use tokio::sync::RwLock;
 use tracing::{debug, info, warn};
 use util::http::HTTP_CLIENT;
 use util::time;
@@ -143,7 +142,7 @@ impl SchwabClient {
                 let one_min = std::time::Duration::from_secs(60);
                 tokio::time::sleep(one_min).await;
 
-                if access_token.read().await.expires_at >= time::now() + (5 * one_min) {
+                if access_token.read().unwrap().expires_at >= time::now() + (5 * one_min) {
                     continue;
                 }
                 if refresh_token.expires_at <= time::now() {
@@ -160,7 +159,7 @@ impl SchwabClient {
                         }
                     };
                 let expires_at = time::now() + Duration::seconds(expires_in);
-                let mut lock = access_token.write().await;
+                let mut lock = access_token.write().unwrap();
                 *lock = AccessToken {
                     access_token: new_token,
                     expires_at,
@@ -168,6 +167,10 @@ impl SchwabClient {
                 debug!("Successfully refreshed access token, expires at {expires_at}");
             }
         });
+    }
+
+    fn bearer_token(&self) -> String {
+        self.access_token.read().unwrap().access_token.clone()
     }
 
     pub async fn create_streaming_client(&self) -> SchwabResult<StreamingClient> {
@@ -188,7 +191,7 @@ impl SchwabClient {
 
         let response = HTTP_CLIENT
             .get(format!("{API_URL}/trader/v1/accounts/accountNumbers"))
-            .bearer_auth(self.access_token.read().await.access_token.clone())
+            .bearer_auth(self.bearer_token())
             .send()
             .await?;
         if !response.status().is_success() {
@@ -206,7 +209,7 @@ impl SchwabClient {
                     "{}/trader/v1/accounts/{}",
                     API_URL, account.hash_value
                 ))
-                .bearer_auth(self.access_token.read().await.access_token.clone())
+                .bearer_auth(self.bearer_token())
                 .send()
                 .await?;
             if !response.status().is_success() {
@@ -251,7 +254,7 @@ impl SchwabClient {
         }
         let response = HTTP_CLIENT
             .get(&url)
-            .bearer_auth(self.access_token.read().await.access_token.clone())
+            .bearer_auth(self.bearer_token())
             .query(&query_params)
             .send()
             .await?;
@@ -317,7 +320,7 @@ impl SchwabClient {
         );
         let response = HTTP_CLIENT
             .get(url)
-            .bearer_auth(self.access_token.read().await.access_token.clone())
+            .bearer_auth(self.bearer_token())
             .send()
             .await?;
         if !response.status().is_success() {
@@ -357,7 +360,7 @@ impl SchwabClient {
         let response = HTTP_CLIENT
             .get(url)
             .query(&[("symbol", symbol), ("projection", &projection.to_string())])
-            .bearer_auth(self.access_token.read().await.access_token.clone())
+            .bearer_auth(self.bearer_token())
             .send()
             .await?;
         if !response.status().is_success() {

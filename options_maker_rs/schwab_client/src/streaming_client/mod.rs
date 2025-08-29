@@ -4,12 +4,12 @@ use futures::{SinkExt, StreamExt};
 
 use rustc_hash::{FxHashMap, FxHashSet};
 use serde_json::Value;
-use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::{Arc, RwLock};
 use std::time::Duration;
 use streamer::Streamer;
 
-use tokio::sync::{RwLock, mpsc};
+use tokio::sync::mpsc;
 use tokio::time;
 use tokio_tungstenite::tungstenite::Message;
 use tracing::{debug, info, warn};

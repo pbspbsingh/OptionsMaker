@@ -17,7 +17,6 @@ app_config = { path = "../app_config" }
 util = { path = "../util" }
 
 url = "2.5"
-base64 = "0.22.1"
 itertools = { workspace = true }
 urlencoding = "2.1.3"
 

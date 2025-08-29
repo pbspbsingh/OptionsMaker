@@ -7,17 +7,15 @@ use axum::response::Html;
 use axum::routing::get;
 use axum_server::Handle;
 use axum_server::tls_rustls::RustlsConfig;
-use base64::Engine;
-use base64::prelude::BASE64_STANDARD;
 use serde::Deserialize;
-use std::collections::HashMap;
+use serde_json::json;
 use std::net::{Ipv4Addr, SocketAddr};
 use std::sync::Arc;
 use std::time::Duration;
 use tokio::sync::Mutex;
 use tracing::{info, warn};
 use url::Url;
-use util::http::{HTTP_CLIENT, header};
+use util::http::{HTTP_CLIENT, RequestBuilder, header};
 
 #[derive(Debug, Deserialize)]
 pub struct TokenResponse {
@@ -150,23 +148,14 @@ async fn retrieve_auth_tokens(redirect_url: Url) -> anyhow::Result<TokenResponse
 }
 
 async fn exchange_tokens(code: &str, redirect_uri: &str) -> anyhow::Result<TokenResponse> {
-    let mut params = HashMap::new();
-    params.insert("grant_type", "authorization_code");
-    params.insert("code", code);
-    params.insert("redirect_uri", redirect_uri);
-    params.insert("client_id", &APP_CONFIG.schwab_client_id);
-    let auth_header = format!(
-        "Basic {}",
-        BASE64_STANDARD.encode(format!(
-            "{}:{}",
-            &APP_CONFIG.schwab_client_id, &APP_CONFIG.schwab_client_secret
-        ))
-    );
     info!("Sending post request for token exchange");
-    let response = HTTP_CLIENT
-        .post(format!("{API_URL}/v1/oauth/token"))
-        .header(header::AUTHORIZATION, auth_header)
-        .header(header::CONTENT_TYPE, "application/x-www-form-urlencoded")
+    let params = json!({
+        "grant_type": "authorization_code",
+        "code": code,
+        "redirect_uri": redirect_uri,
+        "client_id": &APP_CONFIG.schwab_client_id,
+    });
+    let response = prepare_post_request()
         .form(&params)
         .send()
         .await
@@ -184,23 +173,12 @@ async fn exchange_tokens(code: &str, redirect_uri: &str) -> anyhow::Result<Token
 }
 
 pub async fn fetch_access_token(refresh_token: &str) -> anyhow::Result<(String, i64)> {
-    let encoded_credentials = BASE64_STANDARD.encode(format!(
-        "{}:{}",
-        &APP_CONFIG.schwab_client_id, &APP_CONFIG.schwab_client_secret
-    ));
-
-    let mut form_data = HashMap::new();
-    form_data.insert("grant_type", "refresh_token");
-    form_data.insert("refresh_token", refresh_token);
-
     info!("Sending post request for token exchange");
-    let response = HTTP_CLIENT
-        .post(format!("{API_URL}/v1/oauth/token"))
-        .header(
-            header::AUTHORIZATION,
-            format!("Basic {encoded_credentials}"),
-        )
-        .header(header::CONTENT_TYPE, "application/x-www-form-urlencoded")
+    let form_data = json!({
+        "grant_type": "refresh_token",
+        "refresh_token": refresh_token,
+    });
+    let response = prepare_post_request()
         .form(&form_data)
         .send()
         .await
@@ -223,4 +201,14 @@ pub async fn fetch_access_token(refresh_token: &str) -> anyhow::Result<(String, 
         .await
         .context("Failed to deserialize access token response")?;
     Ok((response.access_token, response.expires_in))
+}
+
+fn prepare_post_request() -> RequestBuilder {
+    HTTP_CLIENT
+        .post(format!("{API_URL}/v1/oauth/token"))
+        .header(header::CONTENT_TYPE, "application/x-www-form-urlencoded")
+        .basic_auth(
+            &APP_CONFIG.schwab_client_id,
+            Some(&APP_CONFIG.schwab_client_secret),
+        )
 }
