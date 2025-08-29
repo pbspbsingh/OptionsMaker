@@ -1,6 +1,7 @@
 use super::controller::Trend;
 use super::dataframe::DataFrame;
 use super::support_resistance::{PriceRejection, check_resistance, check_support};
+use app_config::APP_CONFIG;
 
 use schwab_client::Candle;
 
@@ -28,6 +29,10 @@ impl GapFill {
     }
 
     pub fn check_sr(&self, trend: Trend, candles: &[Candle], atr: f64) -> Option<PriceRejection> {
+        if !APP_CONFIG.trade_config.enable_gap_fill_sr {
+            return None;
+        }
+
         let last = candles.last()?;
         if trend == Trend::Bullish
             && self.prev_high <= last.close

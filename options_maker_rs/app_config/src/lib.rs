@@ -44,8 +44,10 @@ pub struct TradeConfig {
     pub use_tick_data: bool,
     #[serde(deserialize_with = "parse_trading_hours")]
     pub trading_hours: (NaiveTime, NaiveTime),
+    #[serde(deserialize_with = "parse_timeframe")]
+    pub sr_time_frame: Duration,
     pub sr_threshold_perc: f64,
-    pub sr_threshold_max: f64,
+    pub enable_gap_fill_sr: bool,
     pub chart_configs: Vec<ChartConfig>,
 }
 

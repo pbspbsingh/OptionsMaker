@@ -251,7 +251,7 @@ impl Controller {
             return None;
         }
 
-        let candles = utils::aggregate(&self.candles, Duration::minutes(5));
+        let candles = utils::aggregate(&self.candles, APP_CONFIG.trade_config.sr_time_frame);
         let last = candles.last()?;
         if trend == Trend::Bullish || trend == Trend::Bearish {
             let atr = self.charts.first().and_then(Chart::atr)?;

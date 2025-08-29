@@ -27,7 +27,7 @@ pub fn check_support(candles: &[Candle], support: f64, atr: f64) -> Option<Price
     let last_green = last_green?;
     if !(candles[len - 1].is_green()
         && candles[len - 1].close >= support
-        && (candles[len - 1].close - candles[last_green].open).abs() >= atr * 0.8)
+        && (candles[len - 1].close - candles[last_green].open).abs() >= atr * 0.5)
     {
         return None;
     }
@@ -106,10 +106,8 @@ pub fn check_resistance(candles: &[Candle], resistance: f64, atr: f64) -> Option
 }
 
 pub fn threshold(price: f64) -> f64 {
-    let price = price.abs();
     let config = &APP_CONFIG.trade_config;
-    let threshold = price * config.sr_threshold_perc / 100.0;
-    threshold.min(config.sr_threshold_max)
+    (price.abs() * config.sr_threshold_perc) / 100.0
 }
 
 fn smooth(data: impl Iterator<Item = f64>) -> Vec<f64> {
