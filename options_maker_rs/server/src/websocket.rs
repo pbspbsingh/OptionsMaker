@@ -12,21 +12,21 @@ use futures::{SinkExt, StreamExt};
 use rustc_hash::FxHashMap;
 use serde_json::{Value, json};
 use std::io::Read;
-use std::sync::LazyLock;
 use std::sync::atomic::{AtomicUsize, Ordering};
+use std::sync::{LazyLock, RwLock};
 use std::time::Duration;
-use tokio::sync::{RwLock, mpsc};
+use tokio::sync::mpsc;
 use tracing::{debug, warn};
 
 static WS_ID: AtomicUsize = AtomicUsize::new(1);
 
-static WS_SENDERS: LazyLock<RwLock<FxHashMap<usize, mpsc::Sender<Value>>>> =
+static WS_SENDERS: LazyLock<RwLock<FxHashMap<usize, mpsc::Sender<Message>>>> =
     LazyLock::new(|| RwLock::new(FxHashMap::default()));
 
 pub fn router() -> Router {
     async fn _handle_websocket(socket: WebSocket) {
         if let Err(err) = handle_websocket(socket).await {
-            debug!("Error processing websocket: {err}");
+            warn!("Error processing websocket: {err}");
         }
     }
 
@@ -40,8 +40,8 @@ async fn handle_websocket(socket: WebSocket) -> anyhow::Result<()> {
     let ws_id = WS_ID.fetch_add(1, Ordering::Relaxed);
     debug!("Got a websocket connection with id {ws_id}");
 
-    let (sender, mut receiver) = mpsc::channel::<Value>(128);
-    WS_SENDERS.write().await.insert(ws_id, sender);
+    let (sender, mut receiver) = mpsc::channel(128);
+    WS_SENDERS.write().unwrap().insert(ws_id, sender);
 
     let (mut ws_writer, mut ws_reader) = socket.split();
     ws_writer
@@ -67,8 +67,8 @@ async fn handle_websocket(socket: WebSocket) -> anyhow::Result<()> {
     loop {
         let heartbeat_timer = tokio::time::sleep(Duration::from_secs(10));
         tokio::select! {
-            Some(value) = receiver.recv() => {
-                if ws_writer.send(to_message(value)).await.is_err() {
+            Some(message) = receiver.recv() => {
+                if ws_writer.send(message).await.is_err() {
                     break;
                 }
             }
@@ -90,7 +90,8 @@ async fn handle_websocket(socket: WebSocket) -> anyhow::Result<()> {
             else => break,
         }
     }
-    WS_SENDERS.write().await.remove(&ws_id);
+    debug!("Websocket connection closed for {ws_id}");
+    WS_SENDERS.write().unwrap().remove(&ws_id);
     Ok(())
 }
 
@@ -100,16 +101,24 @@ pub fn publish(action: impl AsRef<str>, message: impl serde::Serialize) {
         "data": message,
     });
 
-    tokio::spawn(async move {
+    tokio::task::spawn_blocking(|| {
+        let senders = WS_SENDERS.read().unwrap();
+        if senders.is_empty() {
+            return;
+        }
+
+        let message = to_message(payload);
         let mut failed_ws = Vec::new();
-        WS_SENDERS.read().await.iter().for_each(|(id, sender)| {
-            if sender.try_send(payload.clone()).is_err() {
-                warn!("Failed to publish websocket message to {id}");
+        for (id, sender) in senders.iter() {
+            if sender.try_send(message.clone()).is_err() {
+                debug!("Failed to publish websocket message to {id}");
                 failed_ws.push(*id);
             }
-        });
+        }
+        drop(senders);
+
         if !failed_ws.is_empty() {
-            let mut senders = WS_SENDERS.write().await;
+            let mut senders = WS_SENDERS.write().unwrap();
             for id in failed_ws {
                 senders.remove(&id);
             }
