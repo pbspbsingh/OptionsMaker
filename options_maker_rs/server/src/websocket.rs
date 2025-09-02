@@ -96,34 +96,30 @@ async fn handle_websocket(socket: WebSocket) -> anyhow::Result<()> {
 }
 
 pub fn publish(action: impl AsRef<str>, message: impl serde::Serialize) {
-    let payload = json!({
+    let senders = WS_SENDERS.read().unwrap();
+    if senders.is_empty() {
+        return;
+    }
+
+    let mut failed_ws = Vec::new();
+    let message = to_message(json!({
         "action": action.as_ref(),
         "data": message,
-    });
-
-    tokio::task::spawn_blocking(|| {
-        let senders = WS_SENDERS.read().unwrap();
-        if senders.is_empty() {
-            return;
+    }));
+    for (id, sender) in senders.iter() {
+        if sender.try_send(message.clone()).is_err() {
+            debug!("Failed to publish websocket message to {id}");
+            failed_ws.push(*id);
         }
+    }
+    drop(senders);
 
-        let message = to_message(payload);
-        let mut failed_ws = Vec::new();
-        for (id, sender) in senders.iter() {
-            if sender.try_send(message.clone()).is_err() {
-                debug!("Failed to publish websocket message to {id}");
-                failed_ws.push(*id);
-            }
+    if !failed_ws.is_empty() {
+        let mut senders = WS_SENDERS.write().unwrap();
+        for id in failed_ws {
+            senders.remove(&id);
         }
-        drop(senders);
-
-        if !failed_ws.is_empty() {
-            let mut senders = WS_SENDERS.write().unwrap();
-            for id in failed_ws {
-                senders.remove(&id);
-            }
-        }
-    });
+    }
 }
 
 fn to_message(value: Value) -> Message {

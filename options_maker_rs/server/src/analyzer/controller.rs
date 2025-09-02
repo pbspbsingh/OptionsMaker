@@ -176,7 +176,7 @@ impl Controller {
             "isFavorite": self.is_favorite,
             "charts": charts,
         });
-        websocket::publish("UPDATE_CHART", data);
+        tokio::task::spawn_blocking(|| websocket::publish("UPDATE_CHART", data));
     }
 
     fn update_charts(&mut self, publish: bool) {

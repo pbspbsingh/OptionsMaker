@@ -15,6 +15,7 @@ use rustc_hash::FxHashMap;
 use schwab_client::Instrument;
 use schwab_client::streaming_client::StreamResponse;
 
+use futures::{StreamExt, stream};
 use std::sync::OnceLock;
 use std::time::Instant;
 use tokio::sync::mpsc;
@@ -39,16 +40,17 @@ pub async fn start_analysis() -> anyhow::Result<()> {
     let instruments = persist::ticker::fetch_instruments().await?;
     info!("Starting analysis of {} symbols", instruments.len());
 
-    let use_tick_data = APP_CONFIG.trade_config.use_tick_data;
-    let mut controllers = FxHashMap::default();
-    for ins in instruments {
-        debug!("Processing instrument: {}", ins.symbol);
-        let Ok(controller) = init_controller(&ins).await else {
-            continue;
-        };
-        controllers.insert(ins.symbol, controller);
-    }
+    let mut controllers: FxHashMap<String, Controller> = stream::iter(instruments)
+        .filter_map(async |instrument: Instrument| {
+            debug!("Processing instrument: {}", instrument.symbol);
+            let controller = init_controller(&instrument).await.ok()?;
+            Some((instrument.symbol, controller))
+        })
+        .collect()
+        .await;
     provider().sub_charts(controllers.keys().cloned().collect());
+
+    let use_tick_data = APP_CONFIG.trade_config.use_tick_data;
     if use_tick_data {
         info!("Subscribing to tick data for all the equities");
         provider().sub_tick(controllers.keys().cloned().collect());
@@ -57,68 +59,64 @@ pub async fn start_analysis() -> anyhow::Result<()> {
     tokio::spawn(async move {
         loop {
             tokio::select! {
-                Some(stream_res) = stream_listener.recv() => {
-                    match stream_res {
-                        StreamResponse::Equity { symbol,candle } => {
-                            if let Some(controller) = controllers.get_mut(&symbol) {
-                                let start = Instant::now();
-                                controller.on_new_candle(candle, true);
-                                debug!("Processed new candle for {} in {:.2?}", symbol, start.elapsed());
-                            } else {
-                                warn!("Unexpected chart candle received for {symbol}");
-                            }
+                Some(stream_res) = stream_listener.recv() => match stream_res {
+                    StreamResponse::Equity { symbol,candle } => {
+                        if let Some(controller) = controllers.get_mut(&symbol) {
+                            let start = Instant::now();
+                            controller.on_new_candle(candle, true);
+                            debug!("Processed new candle for {} in {:.2?}", symbol, start.elapsed());
+                        } else {
+                            warn!("Unexpected chart candle received for {symbol}");
                         }
-                        StreamResponse::EquityLevelOne { symbol,quote } => {
-                            if let Some(controller) = controllers.get_mut(&symbol) {
-                                let start = Instant::now();
-                                controller.on_tick(quote);
-                                debug!("Processed new tick for {} in {:.2?}", symbol, start.elapsed());
-                            } else {
-                                warn!("Unexpected tick received for {symbol}");
-                            }
-                        }
-                        _ => { }
                     }
-                }
-                Some(cmd) = cmd_recv.recv() => {
-                    match cmd {
-                        AnalyzerCmd::Publish => {
-                            websocket::publish("UPDATE_SYMBOLS", controllers.keys().collect::<Vec<_>>());
-                            for controller in controllers.values() {
-                                controller.publish();
-                            }
+                    StreamResponse::EquityLevelOne { symbol,quote } => {
+                        if let Some(controller) = controllers.get_mut(&symbol) {
+                            let start = Instant::now();
+                            controller.on_tick(quote);
+                            debug!("Processed new tick for {} in {:.2?}", symbol, start.elapsed());
+                        } else {
+                            warn!("Unexpected tick received for {symbol}");
                         }
-                        AnalyzerCmd::ReInitialize(ctr) => {
-                            let symbol = ctr.symbol().to_owned();
-                            info!("Resetting the controller of {symbol}");
-                            ctr.publish();
-                            controllers.insert(symbol.to_owned(), *ctr);
+                    }
+                    _ => { }
+                },
+                Some(cmd) = cmd_recv.recv() => match cmd {
+                    AnalyzerCmd::Publish => {
+                        websocket::publish("UPDATE_SYMBOLS", controllers.keys().collect::<Vec<_>>());
+                        for controller in controllers.values() {
+                            controller.publish();
+                        }
+                    }
+                    AnalyzerCmd::ReInitialize(ctr) => {
+                        let symbol = ctr.symbol().to_owned();
+                        info!("Resetting the controller of {symbol}");
+                        ctr.publish();
+                        controllers.insert(symbol.to_owned(), *ctr);
+                        if use_tick_data {
+                            provider().sub_tick(vec![symbol.clone()]);
+                        }
+                        provider().sub_charts(vec![symbol]);
+                    }
+                    AnalyzerCmd::Remove(symbol) => {
+                        if let Some(_ctr) = controllers.remove(&symbol) {
+                            info!("Removing controller for {symbol}");
                             if use_tick_data {
-                                provider().sub_tick(vec![symbol.clone()]);
+                                provider().unsub_tick(vec![symbol.clone()]);
                             }
-                            provider().sub_charts(vec![symbol]);
+                            provider().unsub_charts(vec![symbol]);
+                        } else {
+                            warn!("Can't remove {symbol}, it's already not present");
                         }
-                        AnalyzerCmd::Remove(symbol) => {
-                            if let Some(_ctr) = controllers.remove(&symbol) {
-                                info!("Removing controller for {symbol}");
-                                if use_tick_data {
-                                    provider().unsub_tick(vec![symbol.clone()]);
-                                }
-                                provider().unsub_charts(vec![symbol]);
-                            } else {
-                                warn!("Can't remove {symbol}, it's already not present");
-                            }
-                            websocket::publish("UPDATE_SYMBOLS", controllers.keys().collect::<Vec<_>>());
-                        }
-                        AnalyzerCmd::SetFavorite(symbol, is_favorite) => {
-                            if let Some(controller) = controllers.get_mut(&symbol) {
-                                controller.set_favorite(is_favorite);
-                            } else {
-                                warn!("Unexpected favorite command for {symbol}");
-                            }
+                        websocket::publish("UPDATE_SYMBOLS", controllers.keys().collect::<Vec<_>>());
+                    }
+                    AnalyzerCmd::SetFavorite(symbol, is_favorite) => {
+                        if let Some(controller) = controllers.get_mut(&symbol) {
+                            controller.set_favorite(is_favorite);
+                        } else {
+                            warn!("Unexpected favorite command for {symbol}");
                         }
                     }
-                }
+                },
             }
         }
     });
