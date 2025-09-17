@@ -1,32 +1,35 @@
 use super::controller::Trend;
 use super::dataframe::DataFrame;
 use super::divergence::{Divergence, find_divergence};
-use super::utils;
-use super::volume::{self, VolumeAnalysisParam, VolumeAnalyzer};
-
+use super::{utils, volume};
+use crate::analyzer::volume::predictor::VolumePredictor;
+use anyhow::Context;
 use app_config::{APP_CONFIG, ChartConfig, DivIndicator};
 use schwab_client::Candle;
 use serde_json::{Value, json};
+use std::time::Instant;
 use ta_lib::volatility;
+use tracing::{debug, info};
+use util::format_big_num;
 
 pub struct Chart {
     config: &'static ChartConfig,
     dataframe: DataFrame,
-    vol_analyzers: Vec<VolumeAnalyzer>,
     messages: Vec<String>,
     divergences: Vec<Divergence>,
+    volume_predictor: Option<VolumePredictor>,
 }
 
 impl Chart {
     pub fn new(candles: &[Candle], config: &'static ChartConfig) -> Self {
-        let analyzers = vec![volume::cur_time_vol, volume::rvol];
         let aggregated = utils::aggregate(candles, config.timeframe);
+        let dataframe = DataFrame::from_candles(&aggregated);
         Self {
             config,
-            dataframe: DataFrame::from_candles(&aggregated),
-            vol_analyzers: analyzers,
+            dataframe,
             messages: vec![],
             divergences: vec![],
+            volume_predictor: None,
         }
     }
 
@@ -38,7 +41,7 @@ impl Chart {
 
         self.dataframe = self.dataframe.trim_working_days(self.config.days);
 
-        self.analyze_volume(candles);
+        self.analyze_volume(&aggregated);
         if self.config.use_divergence {
             self.compute_divergence(trend);
         }
@@ -93,14 +96,57 @@ impl Chart {
     fn analyze_volume(&mut self, candles: &[Candle]) {
         self.messages.clear();
 
-        for analyzer in &self.vol_analyzers {
-            analyzer(VolumeAnalysisParam {
-                candles,
-                df: &self.dataframe,
-                tf: self.config.timeframe,
-                output: &mut self.messages,
-            });
+        self.messages.push(volume::vols_until_now(candles));
+
+        let prediction_msg = match self.predict_volume(candles) {
+            Ok(expected_vol) => {
+                let daily_avg = volume::daily_avg_volume(candles);
+                format!(
+                    "Daily Avg: {}, Predicted: {}, Ratio: {:.2}",
+                    format_big_num(daily_avg),
+                    format_big_num(expected_vol),
+                    expected_vol / daily_avg,
+                )
+            }
+            Err(e) => {
+                format!("VolumePrediction Error: {e:?}")
+            }
+        };
+        self.messages.push(prediction_msg);
+    }
+
+    fn predict_volume(&mut self, candles: &[Candle]) -> anyhow::Result<f64> {
+        let len = candles.len();
+        if len < 100 {
+            anyhow::bail!("At leat 100 candles is required, we have: {len}");
         }
+
+        let last = candles[len - 1];
+        let (historical, today): (Vec<_>, Vec<_>) = candles
+            .iter()
+            .partition(|c| c.time.date_naive() < last.time.date_naive());
+        if self.volume_predictor.is_none()
+            || (last.time.date_naive() != candles[len - 2].time.date_naive())
+        {
+            let start = Instant::now();
+            let mut predictor =
+                VolumePredictor::new(4, 17).context("Failed to init VolumePredictor")?;
+            predictor
+                .train(&historical, 150)
+                .context("Failed to train the VolumePredictor")?;
+            self.volume_predictor = Some(predictor);
+            info!("Initialized volume predictor in {:?}", start.elapsed());
+        }
+        let predictor = self
+            .volume_predictor
+            .as_mut()
+            .ok_or_else(|| anyhow::anyhow!("Volume predictor is not initialized"))?;
+        let start = Instant::now();
+        let vol = predictor
+            .predict_total_volume(&historical, &today)
+            .context("Failed to predict volume")?;
+        debug!("Ran volume predictor in {:?}", start.elapsed());
+        Ok(vol)
     }
 
     fn compute_divergence(&mut self, trend: Trend) {
