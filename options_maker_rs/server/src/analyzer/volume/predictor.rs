@@ -72,16 +72,16 @@ impl VolumePredictor {
         })
     }
 
-    fn is_trading_time(&self, dt: &DateTime<Local>) -> bool {
+    fn is_trading_time(&self, dt: DateTime<Local>) -> bool {
         if dt.date_naive().is_weekend() {
             return false;
         }
 
         let time = dt.time();
-        time >= self.trading_hours_start && time <= self.trading_hours_end
+        self.trading_hours_start <= time && time < self.trading_hours_end
     }
 
-    fn get_trading_progress(&self, dt: &DateTime<Local>) -> f32 {
+    fn get_trading_progress(&self, dt: DateTime<Local>) -> f32 {
         if !self.is_trading_time(dt) {
             return if dt.time() < self.trading_hours_start {
                 0.0
@@ -105,7 +105,7 @@ impl VolumePredictor {
         let mut daily_candles = FxHashMap::default();
 
         for candle in candles {
-            if !self.is_trading_time(&candle.time) {
+            if !self.is_trading_time(candle.time) {
                 continue;
             }
 
@@ -165,7 +165,7 @@ impl VolumePredictor {
         let total_current_volume: u64 = current_candles.iter().map(|c| c.volume).sum();
         let current_progress = current_candles
             .last()
-            .map(|c| self.get_trading_progress(&c.time))
+            .map(|c| self.get_trading_progress(c.time))
             .unwrap_or(0.0);
         let candle_count = current_candles.len() as f32;
 
@@ -400,22 +400,19 @@ impl VolumePredictor {
         Ok(())
     }
 
-    /// Predict total volume with robust handling of missing candles
     pub fn predict_total_volume(
         &self,
         historical_candles: &[Candle],
         current_candles: &[Candle],
     ) -> Result<f64> {
-        // Filter to only trading hours/days
-        let trading_current: Vec<Candle> = current_candles
-            .iter()
-            .filter(|c| self.is_trading_time(&c.time))
-            .cloned()
-            .collect();
-
         let trading_historical: Vec<Candle> = historical_candles
             .iter()
-            .filter(|c| self.is_trading_time(&c.time))
+            .filter(|c| self.is_trading_time(c.time))
+            .cloned()
+            .collect();
+        let trading_current: Vec<Candle> = current_candles
+            .iter()
+            .filter(|c| self.is_trading_time(c.time))
             .cloned()
             .collect();
 

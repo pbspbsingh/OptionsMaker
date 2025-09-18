@@ -41,7 +41,7 @@ impl Chart {
 
         self.dataframe = self.dataframe.trim_working_days(self.config.days);
 
-        self.analyze_volume(&aggregated);
+        self.analyze_volume(candles, &aggregated);
         if self.config.use_divergence {
             self.compute_divergence(trend);
         }
@@ -93,19 +93,19 @@ impl Chart {
         vwap
     }
 
-    fn analyze_volume(&mut self, candles: &[Candle]) {
+    fn analyze_volume(&mut self, candles: &[Candle], aggregated: &[Candle]) {
         self.messages.clear();
 
-        self.messages.push(volume::vols_until_now(candles));
+        self.messages.push(volume::vols_until_now(aggregated));
 
-        let prediction_msg = match self.predict_volume(candles) {
-            Ok(expected_vol) => {
-                let daily_avg = volume::daily_avg_volume(candles);
+        let prediction_msg = match self.predict_volume(candles, aggregated) {
+            Ok(predicted_vol) => {
+                let daily_avg = volume::daily_avg_volume(aggregated);
                 format!(
-                    "Daily Avg: {}, Predicted: {}, Ratio: {:.2}",
+                    "Predicted: {}, Daily Avg: {}, Ratio: {:.2}",
+                    format_big_num(predicted_vol),
                     format_big_num(daily_avg),
-                    format_big_num(expected_vol),
-                    expected_vol / daily_avg,
+                    predicted_vol / daily_avg,
                 )
             }
             Err(e) => {
@@ -115,18 +115,17 @@ impl Chart {
         self.messages.push(prediction_msg);
     }
 
-    fn predict_volume(&mut self, candles: &[Candle]) -> anyhow::Result<f64> {
+    fn predict_volume(&mut self, candles: &[Candle], aggregated: &[Candle]) -> anyhow::Result<f64> {
         let len = candles.len();
-        if len < 100 {
-            anyhow::bail!("At leat 100 candles is required, we have: {len}");
-        }
+        let (Some(last), Some(second_last)) = (candles.get(len - 1), candles.get(len - 2)) else {
+            anyhow::bail!("Not enough candles, duh");
+        };
 
-        let last = candles[len - 1];
-        let (historical, today): (Vec<_>, Vec<_>) = candles
+        let (historical, today): (Vec<_>, Vec<_>) = aggregated
             .iter()
             .partition(|c| c.time.date_naive() < last.time.date_naive());
         if self.volume_predictor.is_none()
-            || (last.time.date_naive() != candles[len - 2].time.date_naive())
+            || (second_last.time.date_naive() < last.time.date_naive())
         {
             let start = Instant::now();
             let mut predictor =
@@ -137,6 +136,7 @@ impl Chart {
             self.volume_predictor = Some(predictor);
             info!("Initialized volume predictor in {:?}", start.elapsed());
         }
+
         let predictor = self
             .volume_predictor
             .as_mut()
