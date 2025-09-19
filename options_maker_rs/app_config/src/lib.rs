@@ -48,6 +48,7 @@ pub struct TradeConfig {
     pub sr_time_frame: Duration,
     pub sr_threshold_perc: f64,
     pub enable_gap_fill_sr: bool,
+    pub auto_compute_sr: bool,
     pub chart_configs: Vec<ChartConfig>,
 }
 

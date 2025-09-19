@@ -107,6 +107,7 @@ export default function Ticker() {
                 <section className="quick-actions">
                     <TextEdit
                         initVal={priceLevels.sort((p1, p2) => p1.price - p2.price).map(p => p.price.toFixed(2)).join(', ')}
+                        hint="Double click to add price levels"
                         onUpdate={val => onPriceLevelsEdited(val.split(',').map(parseFloat))}
                     />
                     <button

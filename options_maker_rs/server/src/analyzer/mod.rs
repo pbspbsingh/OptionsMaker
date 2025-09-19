@@ -124,6 +124,7 @@ pub async fn start_analysis() -> anyhow::Result<()> {
 }
 
 pub async fn init_controller(instrument: &Instrument) -> anyhow::Result<Controller> {
+    let start_time = Instant::now();
     let start = util::time::days_ago(APP_CONFIG.trade_config.look_back_days);
     let (base_candles, update_candles) = provider()
         .fetch_price_history(&instrument.symbol, start)
@@ -162,6 +163,11 @@ pub async fn init_controller(instrument: &Instrument) -> anyhow::Result<Controll
     for candle in update_candles {
         controller.on_new_candle(candle, false);
     }
+    info!(
+        "Initialized controller for {} in {:.2?}",
+        instrument.symbol,
+        start_time.elapsed()
+    );
     Ok(controller)
 }
 

@@ -2,10 +2,11 @@ import { useState } from "react";
 
 export interface TextEditProps {
     initVal: string,
+    hint?: string,
     onUpdate?: (newVal: string) => void;
 }
 
-export function TextEdit({ initVal, onUpdate }: TextEditProps) {
+export function TextEdit({ initVal, hint, onUpdate }: TextEditProps) {
     const [isEditing, setIsEditing] = useState(false);
     return (
         <>
@@ -16,7 +17,7 @@ export function TextEdit({ initVal, onUpdate }: TextEditProps) {
                     onChange={e => onUpdate?.call(null, e.target.value)}
                     onBlur={() => setIsEditing(false)}
                 /> :
-                <span onDoubleClick={() => setIsEditing(true)}>{initVal}</span>}
+                <span onDoubleClick={() => setIsEditing(true)}>{initVal.length > 0 ? initVal : hint}</span>}
         </>
     );
 }

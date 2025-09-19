@@ -194,6 +194,9 @@ impl Controller {
     }
 
     fn update_price_levels(&mut self) {
+        if !APP_CONFIG.trade_config.auto_compute_sr {
+            return;
+        }
         let Some(last) = self.candles.last() else {
             return;
         };

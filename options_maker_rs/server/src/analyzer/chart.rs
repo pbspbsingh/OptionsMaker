@@ -134,7 +134,7 @@ impl Chart {
                 .train(&historical, 150)
                 .context("Failed to train the VolumePredictor")?;
             self.volume_predictor = Some(predictor);
-            info!("Initialized volume predictor in {:?}", start.elapsed());
+            info!("Initialized volume predictor in {:.2?}", start.elapsed());
         }
 
         let predictor = self
