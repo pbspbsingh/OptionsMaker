@@ -221,7 +221,8 @@ export default function Nav(): JSX.Element {
                             <NavLink to={`/ticker/${encodeURIComponent(symbol)}`} className={navStyle(symbols[symbol])}>
                                 <span className="symbol">{symbol}{symbols[symbol].priceLevelsOverridden ? '*' : ''}</span>&nbsp;
                                 | ${lastPrice(symbols[symbol]).toFixed(2)}&nbsp;
-                                | {symbols[symbol].priceChange < 0 ? '-' : ''}${Math.abs(symbols[symbol].priceChange).toFixed(2)}
+                                | {symbols[symbol].priceChange < 0 ? '-' : ''}${Math.abs(symbols[symbol].priceChange).toFixed(2)}&nbsp;
+                                | {symbols[symbol].rvol.toFixed(2)}
                             </NavLink>
                         </li>
                     ))}

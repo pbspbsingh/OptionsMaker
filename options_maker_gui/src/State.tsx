@@ -89,7 +89,7 @@ export type Symbol = {
     symbol: string,
     lastUpdated: number,
     trend: 'None' | 'Bearish' | 'Bullish',
-    atr: number,
+    rvol: number,
     priceChange: number,
     priceLevels: PriceLevel[],
     priceLevelsOverridden: boolean,

@@ -18,6 +18,7 @@ pub struct Chart {
     messages: Vec<String>,
     divergences: Vec<Divergence>,
     volume_predictor: Option<VolumePredictor>,
+    rvol: f64,
 }
 
 impl Chart {
@@ -30,6 +31,7 @@ impl Chart {
             messages: vec![],
             divergences: vec![],
             volume_predictor: None,
+            rvol: 0.0,
         }
     }
 
@@ -96,7 +98,18 @@ impl Chart {
     fn analyze_volume(&mut self, candles: &[Candle], aggregated: &[Candle]) {
         self.messages.clear();
 
-        self.messages.push(volume::vols_until_now(aggregated));
+        self.rvol = 0.0;
+        if let Some((today, other_days)) = volume::daily_avg_vol_until_now(aggregated) {
+            if other_days != 0.0 {
+                self.rvol = today / other_days;
+            }
+            self.messages.push(format!(
+                "Volume: {}, Avg Volume: {}, Ratio: {:.2}",
+                format_big_num(today),
+                format_big_num(other_days),
+                self.rvol,
+            ));
+        };
 
         let prediction_msg = match self.predict_volume(candles, aggregated) {
             Ok(predicted_vol) => {
@@ -128,8 +141,7 @@ impl Chart {
             || (second_last.time.date_naive() < last.time.date_naive())
         {
             let start = Instant::now();
-            let mut predictor =
-                VolumePredictor::new(4, 17).context("Failed to init VolumePredictor")?;
+            let mut predictor = VolumePredictor::new().context("Failed to init VolumePredictor")?;
             predictor
                 .train(&historical, 150)
                 .context("Failed to train the VolumePredictor")?;
@@ -192,6 +204,10 @@ impl Chart {
         let trade_start_price = self.dataframe["close"][trade_start_idx];
         let current_price = self.dataframe["close"][self.dataframe.index().len() - 1];
         Some(current_price - trade_start_price)
+    }
+
+    pub fn rvol(&self) -> f64 {
+        self.rvol
     }
 
     pub fn json(&self) -> Value {

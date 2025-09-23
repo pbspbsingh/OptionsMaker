@@ -154,15 +154,15 @@ pub async fn init_controller(instrument: &Instrument) -> anyhow::Result<Controll
         );
     }
     let is_favorite = persist::groups::is_favorite(&instrument.symbol).await?;
-    let mut controller = Controller::new(
-        instrument.symbol.clone(),
-        base_candles,
-        price_levels,
-        is_favorite,
-    );
-    for candle in update_candles {
-        controller.on_new_candle(candle, false);
-    }
+    let symbol = instrument.symbol.clone();
+    let controller = tokio::task::spawn_blocking(move || {
+        let mut controller = Controller::new(symbol, base_candles, price_levels, is_favorite);
+        for candle in update_candles {
+            controller.on_new_candle(candle, false);
+        }
+        controller
+    })
+    .await?;
     info!(
         "Initialized controller for {} in {:.2?}",
         instrument.symbol,

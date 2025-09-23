@@ -1,3 +1,4 @@
+use app_config::APP_CONFIG;
 use candle_core::{DType, Device, Error, IndexOp, Result, Tensor};
 use candle_nn::{AdamW, Linear, Module, Optimizer, VarBuilder, VarMap, linear};
 use chrono::{DateTime, Datelike, Local, NaiveDate, NaiveTime, Timelike};
@@ -52,18 +53,12 @@ impl Module for VolumeNet {
 }
 
 impl VolumePredictor {
-    pub fn new(trading_start_hour: u32, trading_end_hour: u32) -> Result<Self> {
+    pub fn new() -> Result<Self> {
         let device = Device::Cpu;
         let vs = VarBuilder::from_varmap(&VarMap::new(), DType::F32, &device);
         let model = VolumeNet::new(vs)?;
 
-        let trading_hours_start =
-            NaiveTime::from_hms_opt(trading_start_hour, 0, 0).ok_or_else(|| {
-                Error::Msg(format!("Invalid trading start hour {trading_start_hour}"))
-            })?;
-        let trading_hours_end = NaiveTime::from_hms_opt(trading_end_hour, 0, 0)
-            .ok_or_else(|| Error::Msg(format!("Invalid trading end hour {trading_end_hour}")))?;
-
+        let (trading_hours_start, trading_hours_end) = APP_CONFIG.trade_config.open_hours;
         Ok(Self {
             model,
             device,

@@ -43,6 +43,8 @@ pub struct TradeConfig {
     pub look_back_days: u64,
     pub use_tick_data: bool,
     #[serde(deserialize_with = "parse_trading_hours")]
+    pub open_hours: (NaiveTime, NaiveTime),
+    #[serde(deserialize_with = "parse_trading_hours")]
     pub trading_hours: (NaiveTime, NaiveTime),
     #[serde(deserialize_with = "parse_timeframe")]
     pub sr_time_frame: Duration,
