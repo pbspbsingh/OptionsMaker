@@ -46,8 +46,6 @@ pub struct TradeConfig {
     pub open_hours: (NaiveTime, NaiveTime),
     #[serde(deserialize_with = "parse_trading_hours")]
     pub trading_hours: (NaiveTime, NaiveTime),
-    #[serde(deserialize_with = "parse_timeframe")]
-    pub sr_time_frame: Duration,
     pub sr_threshold_perc: f64,
     pub enable_gap_fill_sr: bool,
     pub auto_compute_sr: bool,

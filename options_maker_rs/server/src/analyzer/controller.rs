@@ -194,16 +194,15 @@ impl Controller {
     }
 
     fn update_price_levels(&mut self) {
-        if !APP_CONFIG.trade_config.auto_compute_sr {
+        if !APP_CONFIG.trade_config.auto_compute_sr || self.candles.is_empty() {
             return;
         }
-        let Some(last) = self.candles.last() else {
-            return;
-        };
 
         const MIN_30: Duration = Duration::minutes(30);
-        let candle_time = last.time.time() + Duration::seconds(last.duration);
         let (th_start, th_end) = APP_CONFIG.trade_config.trading_hours;
+
+        let last = self.candles.last().unwrap();
+        let candle_time = last.time.time() + Duration::seconds(last.duration);
         if self.price_levels.is_empty()
             || ((th_start - MIN_30) <= candle_time && candle_time < th_start)
         {
@@ -254,7 +253,10 @@ impl Controller {
             return None;
         }
 
-        let candles = utils::aggregate(&self.candles, APP_CONFIG.trade_config.sr_time_frame);
+        let candles = utils::aggregate(
+            &self.candles,
+            APP_CONFIG.trade_config.chart_configs.first()?.timeframe,
+        );
         let last = candles.last()?;
         if trend == Trend::Bullish || trend == Trend::Bearish {
             let atr = self.charts.first().and_then(Chart::atr)?;
