@@ -2,7 +2,6 @@ use super::chart::Chart;
 use super::dataframe::DataFrame;
 use super::support_resistance::{PriceRejection, check_resistance, check_support, threshold};
 use super::utils;
-use std::time::Instant;
 
 use crate::analyzer::gap_fill::GapFill;
 use crate::websocket;
@@ -13,7 +12,7 @@ use rand::{Rng, rng};
 use schwab_client::{Candle, Quote};
 use serde::Serialize;
 use serde_json::json;
-use tracing::{debug, info};
+use tracing::debug;
 
 pub struct Controller {
     symbol: String,
@@ -106,23 +105,6 @@ impl Controller {
 
     pub fn symbol(&self) -> &str {
         &self.symbol
-    }
-
-    pub fn train(&mut self) -> anyhow::Result<()> {
-        let start = Instant::now();
-        for chart in &mut self.charts {
-            if cfg!(debug_assertions) {
-                // Skip training in debug mode as it's computationally expensive
-                continue;
-            }
-            chart.train_volume_predictor()?;
-        }
-        info!(
-            "Finishing training for {} in {:?}",
-            self.symbol,
-            start.elapsed()
-        );
-        Ok(())
     }
 
     pub fn on_new_candle(&mut self, candle: Candle, publish: bool) {

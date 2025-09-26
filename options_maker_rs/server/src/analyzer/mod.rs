@@ -43,16 +43,7 @@ pub async fn start_analysis() -> anyhow::Result<()> {
     let mut controllers: FxHashMap<String, Controller> = stream::iter(instruments)
         .filter_map(async |instrument: Instrument| {
             debug!("Processing instrument: {}", instrument.symbol);
-            let controller = match init_controller(&instrument).await {
-                Ok(controller) => Some(controller),
-                Err(e) => {
-                    warn!(
-                        "Failed to create controller for {}: {}",
-                        instrument.symbol, e
-                    );
-                    None
-                }
-            }?;
+            let controller = init_controller(&instrument).await.ok()?;
             Some((instrument.symbol, controller))
         })
         .collect()
@@ -166,13 +157,12 @@ pub async fn init_controller(instrument: &Instrument) -> anyhow::Result<Controll
     let symbol = instrument.symbol.clone();
     let controller = tokio::task::spawn_blocking(move || {
         let mut controller = Controller::new(symbol, base_candles, price_levels, is_favorite);
-        controller.train()?;
         for candle in update_candles {
             controller.on_new_candle(candle, false);
         }
-        Ok::<_, anyhow::Error>(controller)
+        controller
     })
-    .await??;
+    .await?;
     info!(
         "Initialized controller for {} in {:.2?}",
         instrument.symbol,
