@@ -12,7 +12,7 @@ use rand::{Rng, rng};
 use schwab_client::{Candle, Quote};
 use serde::Serialize;
 use serde_json::json;
-use tracing::debug;
+use tracing::{debug, warn};
 
 pub struct Controller {
     symbol: String,
@@ -105,6 +105,14 @@ impl Controller {
 
     pub fn symbol(&self) -> &str {
         &self.symbol
+    }
+
+    pub fn train(&mut self) {
+        for chart in &mut self.charts {
+            if let Err(e) = chart.train() {
+                warn!("Failed to train {} because of {}", self.symbol, e);
+            }
+        }
     }
 
     pub fn on_new_candle(&mut self, candle: Candle, publish: bool) {

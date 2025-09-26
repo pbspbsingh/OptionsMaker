@@ -9,11 +9,12 @@ use schwab_client::Candle;
 use serde_json::{Value, json};
 use std::time::Instant;
 use ta_lib::volatility;
-use tracing::{debug, info};
+use tracing::info;
 use util::format_big_num;
 
 pub struct Chart {
     config: &'static ChartConfig,
+    aggregated: Vec<Candle>,
     dataframe: DataFrame,
     messages: Vec<String>,
     divergences: Vec<Divergence>,
@@ -27,6 +28,7 @@ impl Chart {
         let dataframe = DataFrame::from_candles(&aggregated);
         Self {
             config,
+            aggregated,
             dataframe,
             messages: vec![],
             divergences: vec![],
@@ -35,15 +37,30 @@ impl Chart {
         }
     }
 
+    pub fn train(&mut self) -> anyhow::Result<()> {
+        let start = Instant::now();
+        let end = self
+            .today_start_idx()
+            .ok_or_else(|| anyhow::anyhow!("Couldn't find historical candles"))?;
+        let mut predictor = VolumePredictor::new().context("Failed to init VolumePredictor")?;
+        predictor
+            .train(&self.aggregated[..end], 150)
+            .context("Failed to train the VolumePredictor")?;
+        self.volume_predictor = Some(predictor);
+        info!("Initialized volume predictor in {:.2?}", start.elapsed());
+        Ok(())
+    }
+
     pub fn update(&mut self, candles: &[Candle], trend: Trend) {
-        let aggregated = utils::aggregate(candles, self.config.timeframe);
-        self.dataframe = DataFrame::from_candles(&aggregated);
+        self.aggregated = utils::aggregate(candles, self.config.timeframe);
+        self.dataframe = DataFrame::from_candles(&self.aggregated);
 
         self.compute_indicators();
 
+        self.analyze_volume();
+
         self.dataframe = self.dataframe.trim_working_days(self.config.days);
 
-        self.analyze_volume(candles, &aggregated);
         if self.config.use_divergence {
             self.compute_divergence(trend);
         }
@@ -95,11 +112,11 @@ impl Chart {
         vwap
     }
 
-    fn analyze_volume(&mut self, candles: &[Candle], aggregated: &[Candle]) {
+    fn analyze_volume(&mut self) {
         self.messages.clear();
 
         self.rvol = 0.0;
-        if let Some((today, other_days)) = volume::daily_avg_vol_until_now(aggregated) {
+        if let Some((today, other_days)) = volume::daily_avg_vol_until_now(&self.aggregated) {
             if other_days != 0.0 {
                 self.rvol = today / other_days;
             }
@@ -111,54 +128,27 @@ impl Chart {
             ));
         };
 
-        let prediction_msg = match self.predict_volume(candles, aggregated) {
-            Ok(predicted_vol) => {
-                let daily_avg = volume::daily_avg_volume(aggregated);
-                format!(
-                    "Predicted: {}, Daily Avg: {}, Ratio: {:.2}",
-                    format_big_num(predicted_vol),
-                    format_big_num(daily_avg),
-                    predicted_vol / daily_avg,
-                )
+        let Some(start) = self.today_start_idx() else {
+            return;
+        };
+        let (historical, today) = self.aggregated.split_at(start);
+        let prediction_msg = if let Some(predictor) = &mut self.volume_predictor {
+            match predictor.predict_total_volume(historical, today) {
+                Ok(predicted_vol) => {
+                    let daily_avg = volume::daily_avg_volume(&self.aggregated);
+                    format!(
+                        "Predicted: {}, Daily Avg: {}, Ratio: {:.2}",
+                        format_big_num(predicted_vol),
+                        format_big_num(daily_avg),
+                        predicted_vol / daily_avg,
+                    )
+                }
+                Err(e) => format!("Volume Prediction Error: {e}"),
             }
-            Err(e) => {
-                format!("VolumePrediction Error: {e:?}")
-            }
+        } else {
+            "Volume Predictor is not yet initialized".to_string()
         };
         self.messages.push(prediction_msg);
-    }
-
-    fn predict_volume(&mut self, candles: &[Candle], aggregated: &[Candle]) -> anyhow::Result<f64> {
-        let len = candles.len();
-        let (Some(last), Some(second_last)) = (candles.get(len - 1), candles.get(len - 2)) else {
-            anyhow::bail!("Not enough candles, duh");
-        };
-
-        let (historical, today): (Vec<_>, Vec<_>) = aggregated
-            .iter()
-            .partition(|c| c.time.date_naive() < last.time.date_naive());
-        if self.volume_predictor.is_none()
-            || (second_last.time.date_naive() < last.time.date_naive())
-        {
-            let start = Instant::now();
-            let mut predictor = VolumePredictor::new().context("Failed to init VolumePredictor")?;
-            predictor
-                .train(&historical, 150)
-                .context("Failed to train the VolumePredictor")?;
-            self.volume_predictor = Some(predictor);
-            info!("Initialized volume predictor in {:.2?}", start.elapsed());
-        }
-
-        let predictor = self
-            .volume_predictor
-            .as_mut()
-            .ok_or_else(|| anyhow::anyhow!("Volume predictor is not initialized"))?;
-        let start = Instant::now();
-        let vol = predictor
-            .predict_total_volume(&historical, &today)
-            .context("Failed to predict volume")?;
-        debug!("Ran volume predictor in {:?}", start.elapsed());
-        Ok(vol)
     }
 
     fn compute_divergence(&mut self, trend: Trend) {
@@ -233,5 +223,15 @@ impl Chart {
             "divergences": divergences,
             "messages": &self.messages,
         })
+    }
+
+    fn today_start_idx(&self) -> Option<usize> {
+        let last = self.aggregated.last()?;
+        let (end, _) = self
+            .aggregated
+            .iter()
+            .enumerate()
+            .rfind(|(_idx, candle)| candle.time.date_naive() < last.time.date_naive())?;
+        Some(end + 1)
     }
 }

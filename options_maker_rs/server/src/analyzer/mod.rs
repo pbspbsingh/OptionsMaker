@@ -157,6 +157,7 @@ pub async fn init_controller(instrument: &Instrument) -> anyhow::Result<Controll
     let symbol = instrument.symbol.clone();
     let controller = tokio::task::spawn_blocking(move || {
         let mut controller = Controller::new(symbol, base_candles, price_levels, is_favorite);
+        controller.train();
         for candle in update_candles {
             controller.on_new_candle(candle, false);
         }
