@@ -13,7 +13,7 @@ import {
 } from "./State";
 
 import { NavLink, useLocation, useNavigate } from "react-router";
-import { Connected, NotConnected } from "./icons";
+import { Bucket, Connected, NotConnected } from "./icons";
 import { useSnackbar, type SnackbarKey } from "notistack";
 import useNotifications from "./notifications";
 
@@ -21,20 +21,12 @@ import "./Nav.scss";
 
 export default function Nav(): JSX.Element {
     const { connected, account, symbols } = useContext(AppStateContext);
-    const tickers = Object.keys(symbols);
-    tickers.sort((a, b) => {
-        const s1 = symbols[a];
-        const s2 = symbols[b];
-        if (s1.isFavorite === s2.isFavorite) {
-            return s1.symbol < s2.symbol ? -1 : 1;
-        } else {
-            return s1.isFavorite ? -1 : 1;
-        }
-    });
+    const [tickers, setTickers] = useState<string[]>([]);
 
     const [newTicker, setNewTicker] = useState('');
     const [addingNewTicker, setAddingNewTicker] = useState(false);
     const { enqueueSnackbar: showSnackbar, closeSnackbar } = useSnackbar();
+    const [sortByRVol, setSortByRvol] = useState(false);
 
     const contextMenuRef = useRef<HTMLDivElement>(null);
     const [contextMenuLoc, setContextMenuLoc] = useState<{ top: number, left: number }>({ top: 0, left: 0 });
@@ -46,6 +38,23 @@ export default function Nav(): JSX.Element {
     const navigate = useNavigate();
 
     useNotifications();
+
+    useEffect(() => {
+        const tickers = Object.keys(symbols);
+        tickers.sort((a, b) => {
+            const s1 = symbols[a];
+            const s2 = symbols[b];
+            if (s1.isFavorite === s2.isFavorite) {
+                if (sortByRVol && s1.rvol !== s2.rvol) {
+                    return s2.rvol - s1.rvol;
+                }
+                return s1.symbol < s2.symbol ? -1 : 1;
+            } else {
+                return s1.isFavorite ? -1 : 1;
+            }
+        });
+        setTickers(tickers);
+    }, [symbols, sortByRVol]);
 
     useEffect(() => {
         const clickHandler = (e: any) => {
@@ -214,7 +223,14 @@ export default function Nav(): JSX.Element {
                 <li><NavLink to="/trades">Trades</NavLink></li>
             </ul>
             <div className="tickers" onContextMenu={onContextMenu}>
-                <h6 className="uppercase">Tickers ({favCount}+{nonFavCount})</h6>
+                <div className="ticker-title">
+                    <h6 className="uppercase">Tickers ({favCount}+{nonFavCount})</h6>
+                    <a href="#"
+                        title="Sort by relative volume"
+                        onClick={e => { e.preventDefault(); setSortByRvol(val => !val); }}>
+                        <Bucket height="25px" fill={sortByRVol ? '#26f401ff' : '#a896e986'} />
+                    </a>
+                </div>
                 <ul className="tickers" ref={navMenuRef} onFocus={registerArrowNav} onBlur={unregisterArrowNav}>
                     {tickers.map(symbol => (
                         <li key={symbol} className={symbols[symbol].isFavorite ? 'favorite' : ''}>

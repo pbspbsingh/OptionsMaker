@@ -38,6 +38,18 @@
         overflow-y: auto;
         padding-bottom: 6px;
 
+        .ticker-title {
+            display: flex;
+            flex-direction: row;
+            justify-content: space-between;
+            align-items: center;
+
+            a {
+                padding-block: 5px; 
+                margin-top: -5px;
+            }
+        }
+
         li {
             padding-block: .2rem;
             font-size: .9rem;

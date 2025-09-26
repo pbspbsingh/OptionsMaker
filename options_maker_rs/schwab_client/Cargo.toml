@@ -24,4 +24,4 @@ axum-server = { workspace = true }
 axum = { workspace = true }
 futures = { workspace = true }
 tokio = { workspace = true }
-tokio-tungstenite = { version = "0.27", features = ["rustls", "rustls-tls-webpki-roots"] }
+tokio-tungstenite = { version = "0.28", features = ["rustls", "rustls-tls-webpki-roots"] }
