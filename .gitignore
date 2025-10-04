@@ -19,3 +19,4 @@ options_maker_rs/cert.pem
 *.sqlite*
 
 config.toml
+options_maker_rs/chrome.pid

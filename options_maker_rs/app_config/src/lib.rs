@@ -1,6 +1,8 @@
 use chrono::{Duration, NaiveTime};
 use serde::de::Error;
 use serde::{Deserialize, Deserializer};
+use std::collections::HashMap;
+use std::path::PathBuf;
 use std::sync::LazyLock;
 
 pub static APP_CONFIG: LazyLock<AppConfig> = LazyLock::new(|| {
@@ -11,6 +13,16 @@ pub static APP_CONFIG: LazyLock<AppConfig> = LazyLock::new(|| {
         .unwrap_or_else(|_| panic!("Failed to read config file {config_file:?}"));
     toml::from_str::<AppConfig>(&config)
         .unwrap_or_else(|e| panic!("Failed to parse as AppConfig toml: {e}\n{config}"))
+});
+
+pub static CRAWLER_CONF: LazyLock<CrawlerConf> = LazyLock::new(|| {
+    let config_file = std::env::args()
+        .nth(2)
+        .unwrap_or_else(|| String::from("crawler.toml"));
+    let config = std::fs::read_to_string(&config_file)
+        .unwrap_or_else(|_| panic!("Failed to read config file {config_file:?}"));
+    toml::from_str::<CrawlerConf>(&config)
+        .unwrap_or_else(|e| panic!("Failed to parse as CrawlerConf toml: {e}\n{config}"))
 });
 
 #[derive(Debug, Deserialize)]
@@ -29,6 +41,8 @@ pub struct AppConfig {
     pub asset_dir: Option<String>,
     #[serde(default)]
     pub disable_ws_compression: bool,
+    #[serde(default)]
+    pub use_crawler: bool,
 
     pub replay_mode: bool,
     pub replay_start_time: Option<String>,
@@ -72,6 +86,15 @@ pub enum DivIndicator {
     #[default]
     Rsi,
     Stochastic,
+}
+
+#[derive(Debug, Deserialize, Default)]
+#[serde(deny_unknown_fields)]
+pub struct CrawlerConf {
+    pub chrome_path: PathBuf,
+    pub chrome_extra_args: String,
+    pub scanner_config: HashMap<String, String>,
+    pub period_config: HashMap<String, u32>,
 }
 
 fn parse_timeframe<'de, D: Deserializer<'de>>(deserializer: D) -> Result<Duration, D::Error> {

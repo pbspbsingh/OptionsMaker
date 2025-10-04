@@ -39,6 +39,7 @@ async fn main() -> anyhow::Result<()> {
     info!("Initializing database...");
     persist::init().await?;
     data_provider::init().await?;
+    fundamentals::start_analysis().await?;
     analyzer::start_analysis().await?;
 
     let api_routers = Router::new()

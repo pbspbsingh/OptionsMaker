@@ -1,0 +1,17 @@
+chrome_path = "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome"
+chrome_extra_args = "--user-data-dir=/Users/singhpra/Documents/ChromeDataDir"
+
+[scanner_config]
+"Market Cap" = "500M"
+"Stock Price" = "12"
+"Average Volume" = "500K"
+"Average True Range (ATR)" = "1.5"
+"Sector" = ""
+"Industry" = ""
+"Exchange" = ""
+
+[period_config]
+"Price Change 1M" = 20
+"Price Change 3M" = 35
+"Price Change 6M" = 50
+"Price Change 1Y" = 100
