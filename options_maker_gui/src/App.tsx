@@ -12,6 +12,8 @@ import { BrowserRouter, Route, Routes } from "react-router";
 import { SnackbarProvider } from "notistack";
 import Ticker from "./ticker/Ticker";
 import Home from "./Home";
+import Stocks from "./stocks/Stocks";
+
 import './App.scss';
 
 export default function App(): JSX.Element {
@@ -36,8 +38,9 @@ export default function App(): JSX.Element {
                             </aside>
                             <main>
                                 <Routes>
-                                    <Route path="/" element={<Home />}></Route>
-                                    <Route path="/ticker/:ticker" element={<Ticker />}></Route>
+                                    <Route path="/" element={<Home />} />
+                                    <Route path="/stocks" element={<Stocks />} />
+                                    <Route path="/ticker/:ticker" element={<Ticker />} />
                                 </Routes>
                             </main>
                         </SnackbarProvider>

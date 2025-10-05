@@ -1,9 +1,10 @@
 use crate::db;
+use serde::Serialize;
 use sqlx::types::Json;
 use sqlx::types::chrono::{DateTime, Local};
 use std::collections::HashMap;
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize)]
 pub struct StockInfo {
     pub symbol: String,
     pub exchange: String,
@@ -45,4 +46,28 @@ pub async fn save_scanned_stocks(stocks: &[StockInfo]) -> sqlx::Result<()> {
         .await?;
     }
     trans.commit().await
+}
+
+pub async fn get_stocks() -> sqlx::Result<Vec<StockInfo>> {
+    let rows = sqlx::query!(
+        r#"
+            SELECT symbol,
+                   exchange,
+                   sector,
+                   industry,
+                   price_changes as "price_changes: Json<HashMap<String, f64>>"
+            FROM scanned_symbols
+            ORDER BY sector, industry, symbol
+        "#
+    )
+    .map(|rec| StockInfo {
+        symbol: rec.symbol,
+        exchange: rec.exchange,
+        sector: rec.sector,
+        industry: rec.industry,
+        price_changes: rec.price_changes.0,
+    })
+    .fetch_all(db())
+    .await?;
+    Ok(rows)
 }

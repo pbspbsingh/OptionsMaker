@@ -1,6 +1,5 @@
 use app_config::{APP_CONFIG, CRAWLER_CONF};
 use chrono::TimeDelta;
-use headless_chrome::Browser;
 use std::collections::HashMap;
 use std::sync::Arc;
 use tokio::{task, time};
@@ -18,13 +17,16 @@ pub async fn start_analysis() -> anyhow::Result<()> {
         return Ok(());
     }
 
+    // Start this instance just to validate if browser is connecting fine
     let browser = task::spawn_blocking(browser::init_browser).await??;
     info!("Successfully started the browser");
 
     tokio::spawn(async move {
-        let browser = Arc::new(browser);
+        // drop the browser, as new connection will be made for individual operation
+        task::spawn_blocking(|| drop(browser)).await.ok();
+
         loop {
-            if let Err(e) = run_scanner(browser.clone()).await {
+            if let Err(e) = run_scanner().await {
                 error!("Failed to run the stock scanner: {e}");
             }
             time::sleep(time::Duration::from_secs(300)).await;
@@ -34,7 +36,7 @@ pub async fn start_analysis() -> anyhow::Result<()> {
     Ok(())
 }
 
-async fn run_scanner(browser: Arc<Browser>) -> anyhow::Result<()> {
+async fn run_scanner() -> anyhow::Result<()> {
     let last_updated = persist::fundaments::scanner_last_updated().await?;
     if let Some(last_updated) = last_updated
         && util::time::now() - last_updated < TimeDelta::days(1)
@@ -44,6 +46,7 @@ async fn run_scanner(browser: Arc<Browser>) -> anyhow::Result<()> {
     }
 
     let mut stock_infos = HashMap::new();
+    let browser = Arc::new(task::spawn_blocking(browser::init_browser).await??);
     for (key, value) in &CRAWLER_CONF.period_config {
         let mut filters = CRAWLER_CONF.scanner_config.clone();
         for key in CRAWLER_CONF.period_config.keys() {

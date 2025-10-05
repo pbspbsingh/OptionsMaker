@@ -29,9 +29,10 @@ data_provider = { path = "../data_provider" }
 
 tokio = { workspace = true, features = ["full"] }
 futures = { workspace = true }
-axum = { workspace = true, features = ["ws"] }
+axum = { workspace = true, features = ["ws", "query"] }
+axum-extra = { version = "0.10", features = ["query"] }
 axum-server = { workspace = true }
-tower-http = { version = "0.6", features = ["fs"] }
+tower-http = { version = "0.6", features = ["fs", "compression-full"] }
 
 persist = { path = "../persist" }
 fundamentals = { path = "../fundamentals" }

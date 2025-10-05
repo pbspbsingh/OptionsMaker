@@ -214,13 +214,11 @@ export default function Nav(): JSX.Element {
                     <a href="#" data-tooltip="Websocket Id" data-placement="bottom">({account.ws_id})</a>:&nbsp;
                     {connected ? <Connected height="25px" /> : <NotConnected height="25px" />}
                 </p>
-                <p><b>Account:</b> {account.number}</p>
-                <p><b>Balance:</b> ${account.balance.toFixed(2)}</p>
             </div>
             <hr />
             <ul className="main-nav">
                 <li><NavLink to="/">Home</NavLink></li>
-                <li><NavLink to="/trades">Trades</NavLink></li>
+                <li><NavLink to="/stocks">Stocks</NavLink></li>
             </ul>
             <div className="tickers" onContextMenu={onContextMenu}>
                 <div className="ticker-title">

@@ -1,0 +1,66 @@
+.stocks {
+    display: flex;
+    flex-direction: column;
+    height: 100vh;
+    overflow: hidden;
+
+    .error {
+        flex: 1;
+        text-align: center;
+        align-self: center;
+    }
+
+    header {
+        height: 80px;
+        padding: 1rem;
+        box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.2);
+        display: flex;
+        justify-content: space-around;
+        align-items: center;
+    }
+
+    main {
+        flex: 1;
+        padding: 0.1rem;
+        display: flex;
+        gap: 1rem;
+
+        .group {
+            max-height: calc(100vh - 80px);
+            width: 250px;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+
+            h5 {
+                margin-bottom: 0;
+                text-transform: capitalize;
+            }
+        }
+
+        .stock-table {
+            flex: 1;
+            padding: 0;
+            max-height: calc(100vh - 80px);
+            overflow: auto;
+
+            table>thead {
+                cursor: pointer;
+
+                th {
+                  white-space: nowrap;
+                }
+
+                th.active[data-sort="up"]::after {
+                    content: ' ▲';
+                    opacity: 1;
+                }
+                th.active[data-sort="down"]::after {
+                    content: ' ▼';
+                    opacity: 1;
+                }
+            }
+        }
+    }
+}

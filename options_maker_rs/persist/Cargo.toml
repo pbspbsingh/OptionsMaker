@@ -12,3 +12,4 @@ itertools = { workspace = true }
 
 schwab_client = { path = "../schwab_client" }
 util = { path = "../util" }
+serde = { workspace = true, features = ["derive"] }

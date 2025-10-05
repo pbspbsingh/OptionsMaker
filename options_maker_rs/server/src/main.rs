@@ -1,6 +1,7 @@
 mod analyzer;
 mod app_error;
 mod groups;
+mod stocks;
 mod ticker;
 mod websocket;
 
@@ -13,6 +14,7 @@ use std::path::Path;
 use std::time::Instant;
 use time::macros::format_description as time_format;
 use tokio::net::TcpListener;
+use tower_http::compression::CompressionLayer;
 use tower_http::services::{ServeDir, ServeFile};
 use tracing::{info, warn};
 use tracing_subscriber::EnvFilter;
@@ -43,6 +45,7 @@ async fn main() -> anyhow::Result<()> {
     analyzer::start_analysis().await?;
 
     let api_routers = Router::new()
+        .nest("/stocks", stocks::router())
         .nest("/ticker", ticker::router())
         .nest("/favorite", groups::router())
         .merge(websocket::router());
@@ -60,6 +63,7 @@ async fn main() -> anyhow::Result<()> {
                 .not_found_service(ServeFile::new(format!("{asset_dir}/index.html"))),
         );
     }
+    router = router.layer(CompressionLayer::new());
     info!("Initialized server in {:?}", start.elapsed());
 
     let http_port = APP_CONFIG.http_port;
