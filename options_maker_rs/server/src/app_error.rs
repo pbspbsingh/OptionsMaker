@@ -21,6 +21,12 @@ impl From<String> for AppError {
     }
 }
 
+impl From<askama::Error> for AppError {
+    fn from(value: askama::Error) -> Self {
+        AppError::Generic(format!("Template Error: {value}"))
+    }
+}
+
 impl axum::response::IntoResponse for AppError {
     fn into_response(self) -> Response {
         let msg = self.to_string();

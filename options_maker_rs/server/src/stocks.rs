@@ -1,6 +1,6 @@
 use crate::app_error::{AppError, AppResult};
+use rustc_hash::{FxHashMap as HashMap, FxHashSet as HashSet};
 use std::cmp::Reverse;
-use std::collections::{HashMap, HashSet};
 
 use app_config::CRAWLER_CONF;
 
@@ -78,8 +78,8 @@ async fn scanned_stocks(Query(filter): Query<Filter>) -> AppResult<Json<Filtered
         .filter(|si| si.price_changes[&filter.tf] >= tf_config[&filter.tf] as f64)
         .collect_vec();
 
-    let mut sectors = HashMap::new();
-    let mut industries = HashMap::new();
+    let mut sectors = HashMap::default();
+    let mut industries = HashMap::default();
     for stock in &stocks {
         sectors
             .entry(&stock.sector)

@@ -3,6 +3,7 @@ mod app_error;
 mod groups;
 mod stocks;
 mod ticker;
+mod trading_view;
 mod websocket;
 
 use anyhow::Context;
@@ -48,6 +49,7 @@ async fn main() -> anyhow::Result<()> {
         .nest("/stocks", stocks::router())
         .nest("/ticker", ticker::router())
         .nest("/favorite", groups::router())
+        .nest("/trading_view", trading_view::router())
         .merge(websocket::router());
     let mut router = Router::new().nest("/api", api_routers);
     if let Some(asset_dir) = &APP_CONFIG.asset_dir

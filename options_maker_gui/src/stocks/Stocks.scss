@@ -27,7 +27,7 @@
 
         .group {
             max-height: calc(100vh - 80px);
-            width: 250px;
+            width: 200px;
             overflow-y: auto;
             display: flex;
             flex-direction: column;
@@ -45,21 +45,54 @@
             max-height: calc(100vh - 80px);
             overflow: auto;
 
-            table>thead {
-                cursor: pointer;
+            table {
+                thead {
+                    cursor: pointer;
 
-                th {
-                  white-space: nowrap;
+                    th {
+                        white-space: nowrap;
+                    }
+
+                    th.active[data-sort="up"]::after {
+                        content: ' ▲';
+                        opacity: 1;
+                    }
+
+                    th.active[data-sort="down"]::after {
+                        content: ' ▼';
+                        opacity: 1;
+                    }
                 }
 
-                th.active[data-sort="up"]::after {
-                    content: ' ▲';
-                    opacity: 1;
+                tbody {
+                    td {
+                        a {
+                            text-decoration: none;
+                        }
+                    }
                 }
-                th.active[data-sort="down"]::after {
-                    content: ' ▼';
-                    opacity: 1;
+            }
+        }
+
+        .tradingview-chart {
+            max-width: 100%;
+            height: calc(100vh - 80px);
+            display: flex;
+            flex-direction: column;
+
+            header {
+                position: relative;
+
+                button[aria-label="Close"] {
+                    position: absolute;
+                    right: 1rem;
+                    top: 1rem;
                 }
+            }
+
+            iframe {
+                width: 100%;
+                flex: 1;
             }
         }
     }

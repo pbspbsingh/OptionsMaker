@@ -33,6 +33,7 @@ axum = { workspace = true, features = ["ws", "query"] }
 axum-extra = { version = "0.10", features = ["query"] }
 axum-server = { workspace = true }
 tower-http = { version = "0.6", features = ["fs", "compression-full"] }
+askama = "0.14"
 
 persist = { path = "../persist" }
 fundamentals = { path = "../fundamentals" }

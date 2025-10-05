@@ -44,7 +44,7 @@ export default function GroupView({ filterName, groups }: GroupParam) {
                     className={group.selected ? 'primary' : 'outline secondary'}
                     key={group.name}
                     onClick={() => toggleSector(group.name)}>
-                    {group.name}({group.count})
+                    {group.name} ({group.count})
                 </button>
             ))}
         </section>

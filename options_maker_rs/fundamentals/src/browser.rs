@@ -64,7 +64,7 @@ fn start_new_session() -> anyhow::Result<Browser> {
                 reader.read_line(&mut buff)?;
                 if buff.starts_with("DevTools listening on") {
                     let ws_url = buff.trim_start_matches("DevTools listening on").trim();
-                    fs::write(PID_FILE, &ws_url)?;
+                    fs::write(PID_FILE, ws_url)?;
                     return Ok(ws_url.to_owned());
                 }
 

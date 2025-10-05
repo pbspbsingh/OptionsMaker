@@ -95,6 +95,8 @@ pub struct CrawlerConf {
     pub chrome_extra_args: String,
     pub scanner_config: HashMap<String, String>,
     pub period_config: HashMap<String, u32>,
+    pub sector_etfs: HashMap<String, String>,
+    pub industry_etfs: HashMap<String, String>,
 }
 
 fn parse_timeframe<'de, D: Deserializer<'de>>(deserializer: D) -> Result<Duration, D::Error> {
