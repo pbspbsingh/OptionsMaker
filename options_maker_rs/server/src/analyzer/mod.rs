@@ -18,7 +18,7 @@ use schwab_client::streaming_client::StreamResponse;
 use futures::{StreamExt, stream};
 use std::sync::OnceLock;
 use std::time::Instant;
-use tokio::sync::mpsc;
+use tokio::sync::{mpsc, oneshot};
 use tracing::{debug, info, warn};
 
 static CMD_SENDER: OnceLock<mpsc::UnboundedSender<AnalyzerCmd>> = OnceLock::new();
@@ -26,6 +26,7 @@ static CMD_SENDER: OnceLock<mpsc::UnboundedSender<AnalyzerCmd>> = OnceLock::new(
 pub enum AnalyzerCmd {
     Publish,
     ReInitialize(Box<Controller>),
+    IsTickerPresent(String, oneshot::Sender<bool>),
     Remove(String),
     SetFavorite(String, bool),
 }
@@ -41,11 +42,16 @@ pub async fn start_analysis() -> anyhow::Result<()> {
     info!("Starting analysis of {} symbols", instruments.len());
 
     let mut controllers: FxHashMap<String, Controller> = stream::iter(instruments)
-        .filter_map(async |instrument: Instrument| {
-            debug!("Processing instrument: {}", instrument.symbol);
-            let controller = init_controller(&instrument).await.ok()?;
-            Some((instrument.symbol, controller))
-        })
+        .filter_map(
+            async |instrument: Instrument| match init_controller(&instrument).await {
+                Ok(controller) => Some((instrument.symbol, controller)),
+                Err(e) => {
+                    let symbol = instrument.symbol;
+                    warn!("Failed to create controller for '{symbol}': {e}");
+                    None
+                }
+            },
+        )
         .collect()
         .await;
     provider().sub_charts(controllers.keys().cloned().collect());
@@ -96,6 +102,9 @@ pub async fn start_analysis() -> anyhow::Result<()> {
                             provider().sub_tick(vec![symbol.clone()]);
                         }
                         provider().sub_charts(vec![symbol]);
+                    }
+                    AnalyzerCmd::IsTickerPresent(ticker, sender) => {
+                        sender.send(controllers.contains_key(&ticker)).ok();
                     }
                     AnalyzerCmd::Remove(symbol) => {
                         if let Some(_ctr) = controllers.remove(&symbol) {

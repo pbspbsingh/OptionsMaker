@@ -444,7 +444,7 @@ mod test {
 
     #[tokio::test]
     async fn test_schwab_client() -> anyhow::Result<()> {
-        util::test::init_test();
+        util::init::init_test();
 
         let client = SchwabClient::init().await?;
         let search_res = client.search("nvda", SearchProjection::DescSearch).await?;

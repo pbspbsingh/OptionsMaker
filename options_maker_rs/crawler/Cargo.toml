@@ -1,7 +1,11 @@
 [package]
-name = "fundamentals"
+name = "crawler"
 version = "0.1.0"
 edition = "2024"
+
+[[bin]]
+name = "crawler"
+path = "src/main.rs"
 
 [dependencies]
 anyhow = { workspace = true }
@@ -11,7 +15,7 @@ scraper = "0.24"
 
 chrono = { workspace = true }
 serde_json = { workspace = true }
-tokio = { workspace = true, features = ["rt"] }
+tokio = { workspace = true, features = ["full"] }
 
 app_config = { path = "../app_config" }
 persist = { path = "../persist" }

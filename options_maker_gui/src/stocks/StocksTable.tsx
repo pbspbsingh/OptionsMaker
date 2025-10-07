@@ -112,13 +112,13 @@ export default function StocksTable({ timeFilter, stocks }: StocksTableParam) {
                                 </td>
                                 <td>
                                     <a href="#"
-                                        onClick={() => openChart(idx, 'industry')}>
+                                        onClick={() => openChart(idx, 'sector')}>
                                         {stock.sector}
                                     </a>
                                 </td>
                                 <td>
                                     <a href="#"
-                                        onClick={() => openChart(idx, 'sector')}>
+                                        onClick={() => openChart(idx, 'industry')}>
                                         {stock.industry}
                                     </a>
                                 </td>

@@ -31,7 +31,7 @@ fn try_connect_existing_session() -> anyhow::Result<Browser> {
         .with_context(|| format!("Failed to read PID file: {}", pid_file.display()))?;
 
     info!("Connecting to existing session with url: '{ws_url}'");
-    match Browser::connect(ws_url.trim().to_owned()) {
+    match connect(ws_url.trim()) {
         Ok(browser) => {
             info!("Successfully connected to existing browser session");
             Ok(browser)
@@ -79,9 +79,12 @@ fn start_new_session() -> anyhow::Result<Browser> {
     }
 
     let ws_url = start_chrome_process()?;
-    let browser = Browser::connect(ws_url.clone())
-        .with_context(|| format!("Failed to connect to {ws_url}"))?;
+    let browser = connect(&ws_url).with_context(|| format!("Failed to connect to {ws_url}"))?;
     Ok(browser)
+}
+
+fn connect(ws_url: impl Into<String>) -> anyhow::Result<Browser> {
+    Browser::connect_with_timeout(ws_url.into(), Duration::from_secs(300))
 }
 
 fn quick_port() -> anyhow::Result<u16> {

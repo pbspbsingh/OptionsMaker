@@ -1,6 +1,6 @@
 [workspace]
 resolver = "3"
-members = ["app_config", "data_provider", "fundamentals", "persist", "schwab_client", "server", "ta_lib", "util"]
+members = ["app_config", "data_provider", "crawler", "persist", "schwab_client", "server", "ta_lib", "util"]
 
 [workspace.dependencies]
 anyhow = "1"

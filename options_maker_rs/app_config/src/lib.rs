@@ -41,8 +41,6 @@ pub struct AppConfig {
     pub asset_dir: Option<String>,
     #[serde(default)]
     pub disable_ws_compression: bool,
-    #[serde(default)]
-    pub use_crawler: bool,
 
     pub replay_mode: bool,
     pub replay_start_time: Option<String>,

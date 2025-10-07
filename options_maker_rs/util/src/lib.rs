@@ -1,5 +1,5 @@
 pub mod http;
-pub mod test;
+pub mod init;
 pub mod time;
 
 pub fn format_big_num(n: f64) -> String {

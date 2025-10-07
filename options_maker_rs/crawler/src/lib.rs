@@ -1,9 +1,9 @@
-use app_config::{APP_CONFIG, CRAWLER_CONF};
+use app_config::CRAWLER_CONF;
 use chrono::TimeDelta;
 use std::collections::HashMap;
 use std::sync::Arc;
 use tokio::{task, time};
-use tracing::{debug, error, info, warn};
+use tracing::{debug, error, info};
 
 mod browser;
 mod parser;
@@ -11,29 +11,20 @@ mod stock_scanner;
 
 use persist::fundaments::StockInfo;
 
-pub async fn start_analysis() -> anyhow::Result<()> {
-    if !APP_CONFIG.use_crawler {
-        warn!("Crawler is disabled, skipping");
-        return Ok(());
-    }
-
+pub async fn start_crawling() -> anyhow::Result<()> {
     // Start this instance just to validate if browser is connecting fine
     let browser = task::spawn_blocking(browser::init_browser).await??;
     info!("Successfully started the browser");
 
-    tokio::spawn(async move {
-        // drop the browser, as new connection will be made for individual operation
-        task::spawn_blocking(|| drop(browser)).await.ok();
+    // drop the browser, as new connection will be made for individual operation
+    task::spawn_blocking(|| drop(browser)).await.ok();
 
-        loop {
-            if let Err(e) = run_scanner().await {
-                error!("Failed to run the stock scanner: {e}");
-            }
-            time::sleep(time::Duration::from_secs(300)).await;
+    loop {
+        if let Err(e) = run_scanner().await {
+            error!("Failed to run the stock scanner: {e}");
         }
-    });
-
-    Ok(())
+        time::sleep(time::Duration::from_secs(300)).await;
+    }
 }
 
 async fn run_scanner() -> anyhow::Result<()> {

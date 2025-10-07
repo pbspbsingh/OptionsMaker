@@ -8,7 +8,8 @@ use axum::{Json, Router};
 use data_provider::{ReplayInfo, provider};
 use serde::Deserialize;
 use std::collections::HashMap;
-use tracing::{debug, info};
+use tokio::sync::oneshot;
+use tracing::{debug, info, warn};
 
 pub fn router() -> Router {
     Router::new()
@@ -26,7 +27,28 @@ async fn add_new_ticker(Query(symbols): Query<HashMap<String, String>>) -> AppRe
     let instrument = provider().search_symbol(&symbol.to_uppercase()).await?;
     debug!("Fetched instrument {instrument:?}");
 
-    persist::ticker::save_instrument(&instrument).await?;
+    let symbol = &instrument.symbol;
+    let is_saved_already = persist::ticker::fetch_instruments()
+        .await?
+        .into_iter()
+        .any(|ins| ins.symbol == *symbol);
+    if is_saved_already {
+        warn!("Ticker '{symbol}' already exists in the system");
+        let (init_result_sender, init_result_rec) = oneshot::channel::<bool>();
+        analyzer::send_analyzer_cmd(AnalyzerCmd::IsTickerPresent(
+            symbol.clone(),
+            init_result_sender,
+        ));
+        if init_result_rec.await.unwrap_or_default() {
+            warn!("Ticker '{symbol}' is already initialized, no need do anything",);
+            return Err(AppError::Anyhow(anyhow::anyhow!(
+                "{symbol} is already initialized"
+            )));
+        }
+    } else {
+        persist::ticker::save_instrument(&instrument).await?;
+    }
+
     let controller = analyzer::init_controller(&instrument).await?;
     analyzer::send_analyzer_cmd(AnalyzerCmd::ReInitialize(controller.into()));
     Ok(())

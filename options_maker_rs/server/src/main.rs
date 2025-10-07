@@ -13,13 +13,11 @@ use axum_server::tls_rustls::RustlsConfig;
 use std::net::{Ipv4Addr, SocketAddr};
 use std::path::Path;
 use std::time::Instant;
-use time::macros::format_description as time_format;
+
 use tokio::net::TcpListener;
 use tower_http::compression::CompressionLayer;
 use tower_http::services::{ServeDir, ServeFile};
 use tracing::{info, warn};
-use tracing_subscriber::EnvFilter;
-use tracing_subscriber::fmt::time::LocalTime;
 
 #[global_allocator]
 static GLOBAL: mimalloc::MiMalloc = mimalloc::MiMalloc;
@@ -31,18 +29,11 @@ async fn main() -> anyhow::Result<()> {
         .install_default()
         .expect("Unable to install default crypto");
 
-    tracing_subscriber::fmt()
-        .with_env_filter(EnvFilter::builder().parse_lossy(&APP_CONFIG.rust_log))
-        .with_timer(LocalTime::new(time_format!(
-            "[year]-[month]-[day] [hour]:[minute]:[second]"
-        )))
-        .with_level(true)
-        .init();
+    util::init::init_main();
 
     info!("Initializing database...");
     persist::init().await?;
     data_provider::init().await?;
-    fundamentals::start_analysis().await?;
     analyzer::start_analysis().await?;
 
     let api_routers = Router::new()
