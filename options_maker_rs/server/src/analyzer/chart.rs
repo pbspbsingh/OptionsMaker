@@ -189,8 +189,7 @@ impl Chart {
             .index()
             .iter()
             .enumerate()
-            .rev()
-            .find(|(_, time)| time.time() < trade_start_time)?;
+            .rfind(|(_, time)| time.time() < trade_start_time)?;
         let trade_start_price = self.dataframe["close"][trade_start_idx];
         let current_price = self.dataframe["close"][self.dataframe.index().len() - 1];
         Some(current_price - trade_start_price)

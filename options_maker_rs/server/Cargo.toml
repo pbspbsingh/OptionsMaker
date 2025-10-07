@@ -36,6 +36,7 @@ askama = "0.14"
 persist = { path = "../persist" }
 serde = { workspace = true }
 serde_json = { workspace = true }
+toml = { workspace = true }
 
 ta_lib = { path = "../ta_lib" }
 candle-core = "0.9"
