@@ -80,16 +80,16 @@ export default function StocksTable({ timeFilter, stocks }: StocksTableParam) {
                                 Symbol
                             </th>
                             <th
-                                onClick={() => sortStocks('sector')}
-                                className={sortCol === 'sector' ? 'active' : ''}
-                                data-sort={sortDir}>
-                                Sector
-                            </th>
-                            <th
                                 onClick={() => sortStocks('industry')}
                                 className={sortCol === 'industry' ? 'active' : ''}
                                 data-sort={sortDir}>
                                 Industry
+                            </th>
+                            <th
+                                onClick={() => sortStocks('sector')}
+                                className={sortCol === 'sector' ? 'active' : ''}
+                                data-sort={sortDir}>
+                                Sector
                             </th>
                             {timeFilter.map(tf => (
                                 <th key={tf}
@@ -112,14 +112,14 @@ export default function StocksTable({ timeFilter, stocks }: StocksTableParam) {
                                 </td>
                                 <td>
                                     <a href="#"
-                                        onClick={() => openChart(idx, 'sector')}>
-                                        {stock.sector}
+                                        onClick={() => openChart(idx, 'industry')}>
+                                        {stock.industry}
                                     </a>
                                 </td>
                                 <td>
                                     <a href="#"
-                                        onClick={() => openChart(idx, 'industry')}>
-                                        {stock.industry}
+                                        onClick={() => openChart(idx, 'sector')}>
+                                        {stock.sector}
                                     </a>
                                 </td>
                                 {timeFilter.map(tf => (
@@ -136,21 +136,22 @@ export default function StocksTable({ timeFilter, stocks }: StocksTableParam) {
             {selectedItem !== -1 && dialogOpen && <dialog open>
                 <article className="tradingview-chart">
                     <header>
-                        {showChartType === 'stock' &&
-                            <button
-                                onClick={() => setSelectedItem(i => (sortedStocks.length + i - 1) % sortedStocks.length)}>
-                                Prev
-                            </button>}
+                        <button
+                            disabled={showChartType !== 'stock'}
+                            onClick={() => setSelectedItem(i => (sortedStocks.length + i - 1) % sortedStocks.length)}>
+                            Prev
+                        </button>
                         <ChartTitle
+                            current={selectedItem + 1}
+                            total={sortedStocks.length}
                             stockInfo={sortedStocks[selectedItem]}
                             showChartType={showChartType}
                             onclick={(show) => setShowChartType(show)} />
-                        {showChartType === 'stock' &&
-                            <button
-                                onClick={() => setSelectedItem(i => (i + 1) % sortedStocks.length)}>
-                                Next
-                            </button>
-                        }
+                        <button
+                            disabled={showChartType !== 'stock'}
+                            onClick={() => setSelectedItem(i => (i + 1) % sortedStocks.length)}>
+                            Next
+                        </button>
                         <button aria-label="Close" rel="prev" onClick={() => setDialogOpen(false)} />
                     </header>
                     <iframe src={createChartUrl(sortedStocks[selectedItem], showChartType)} />
@@ -160,30 +161,36 @@ export default function StocksTable({ timeFilter, stocks }: StocksTableParam) {
     );
 }
 
-const ChartTitle = (props: { stockInfo: StockInfo, showChartType: ShowChart, onclick: (t: ShowChart) => void }) => {
-    const components = [];
-    switch (props.showChartType) {
-        case 'stock': {
-            components.push(<span>${props.stockInfo.symbol}</span>);
+const ChartTitle = (props: {
+    current: number,
+    total: number,
+    stockInfo: StockInfo,
+    showChartType: ShowChart,
+    onclick: (t: ShowChart) => void
+}) => {
+    const SubTitle = ({ name, action }: { name: string, action: ShowChart }) => (<>
+        {props.showChartType === action ?
+            <>
+                {action === 'stock' && <span>$</span>}
+                <span>{name}</span>
+            </> :
+            <a href="#" onClick={() => props.onclick(action)}>
+                {action === 'stock' && <span>$</span>}{name}
+            </a>
         }
-        case 'industry': {
-            components.push(<a href="#" onClick={() => props.onclick('industry')}>{props.stockInfo.industry}</a>);
-        }
-        case 'sector': {
-            components.push(<a href="#" onClick={() => props.onclick('sector')}>{props.stockInfo.sector}</a>);
-        }
-    }
-    components.reverse();
+    </>);
 
     return (
-        <h5>
-            {components.map((obj, index) => (
-                <span key={index}>
-                    {obj}
-                    {index < components.length - 1 && ' / '}
-                </span>
-            ))}
-        </h5>
+        <h6>
+            <SubTitle name={props.stockInfo.sector} action="sector" />
+            <span> / </span>
+            <SubTitle name={props.stockInfo.industry} action="industry" />
+            <span> / </span>
+            <SubTitle name={props.stockInfo.symbol} action="stock" />
+            <span style={{ fontSize: '0.8rem', fontWeight: 'normal', verticalAlign: 'bottom' }}>
+                &nbsp;({props.current} of {props.total})
+            </span>
+        </h6>
     );
 }
 
