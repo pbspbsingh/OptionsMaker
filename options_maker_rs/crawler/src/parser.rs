@@ -5,6 +5,7 @@ use std::collections::HashMap;
 use tracing::{debug, warn};
 
 pub fn parse_stock_info(inner_table: &str) -> Vec<StockInfo> {
+    let exchange_map = &CRAWLER_CONF.exchange_map;
     let table = format!("<table>{inner_table}</table>");
     let table = Html::parse_document(&table);
     let headers = table
@@ -26,7 +27,8 @@ pub fn parse_stock_info(inner_table: &str) -> Vec<StockInfo> {
             .map(|cell| cell.text().collect::<String>().trim().to_owned())
             .collect::<Vec<_>>();
         let name = cells[headers["Symbol"]].clone();
-        let exchange = cells[headers["Exchange"]].clone();
+        let exchange = &cells[headers["Exchange"]];
+        let exchange  = exchange_map.get(exchange).unwrap_or(exchange).clone();
         let sector = cells[headers["Sector"]].clone();
         let industry = cells[headers["Industry"]].clone();
         let mut price_changes = HashMap::new();

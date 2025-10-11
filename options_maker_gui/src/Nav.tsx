@@ -205,8 +205,8 @@ export default function Nav(): JSX.Element {
             keyDownListner.current = null;
         }
     };
-    const favCount = tickers.filter(ticker => symbols[ticker].isFavorite).length;
-    const nonFavCount = tickers.filter(ticker => !symbols[ticker].isFavorite).length;
+    const favCount = tickers.filter(t => symbols[t] != null).filter(t => symbols[t].isFavorite).length;
+    const nonFavCount = tickers.filter(t => symbols[t] != null).filter(t => !symbols[t].isFavorite).length;
     return (
         <nav className="left-nav">
             <div className="account">
@@ -230,7 +230,7 @@ export default function Nav(): JSX.Element {
                     </a>
                 </div>
                 <ul className="tickers" ref={navMenuRef} onFocus={registerArrowNav} onBlur={unregisterArrowNav}>
-                    {tickers.map(symbol => (
+                    {tickers.filter(t => symbols[t] != null).map(symbol => (
                         <li key={symbol} className={symbols[symbol].isFavorite ? 'favorite' : ''}>
                             <NavLink to={`/ticker/${encodeURIComponent(symbol)}`} className={navStyle(symbols[symbol])}>
                                 <span className="symbol">{symbol}{symbols[symbol].priceLevelsOverridden ? '*' : ''}</span>&nbsp;
