@@ -9,7 +9,7 @@ use axum::routing::get;
 use axum::{Json, Router};
 use axum_extra::extract::Query;
 use itertools::Itertools;
-use persist::fundaments::StockInfo;
+use persist::crawler::StockInfo;
 use serde::{Deserialize, Serialize};
 
 pub fn router() -> Router {
@@ -71,7 +71,7 @@ async fn scanned_stocks(Query(filter): Query<Filter>) -> AppResult<Json<Filtered
         )));
     }
 
-    let stocks = persist::fundaments::get_stocks().await?;
+    let stocks = persist::crawler::get_stocks().await?;
     let stocks = stocks
         .into_iter()
         .filter(|si| si.price_changes.contains_key(&filter.tf))

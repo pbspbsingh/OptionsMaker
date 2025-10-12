@@ -1,15 +1,15 @@
-use app_config::CRAWLER_CONF;
-use chrono::TimeDelta;
+use app_config::{APP_CONFIG, CRAWLER_CONF};
 use std::collections::HashMap;
 use std::sync::Arc;
 use tokio::{task, time};
 use tracing::{debug, error, info};
+use util::time::TradingDay;
 
 mod browser;
 mod parser;
 mod stock_scanner;
 
-use persist::fundaments::StockInfo;
+use persist::crawler::StockInfo;
 
 pub async fn start_crawling() -> anyhow::Result<()> {
     // Start this instance just to validate if browser is connecting fine
@@ -28,9 +28,14 @@ pub async fn start_crawling() -> anyhow::Result<()> {
 }
 
 async fn run_scanner() -> anyhow::Result<()> {
-    let last_updated = persist::fundaments::scanner_last_updated().await?;
+    let trading_end = APP_CONFIG.trade_config.trading_hours.1;
+    let now = util::time::now();
+    let last_updated = persist::crawler::scanner_last_updated().await?;
     if let Some(last_updated) = last_updated
-        && util::time::now() - last_updated < TimeDelta::days(1)
+        && (now.date_naive().is_weekend()
+            || now.naive_local().time() <= trading_end
+            || (now.date_naive() == last_updated.date_naive()
+                && last_updated.naive_local().time() > trading_end))
     {
         debug!("Scanned result was updated recently {last_updated:?}, no need to update now");
         return Ok(());
@@ -57,7 +62,6 @@ async fn run_scanner() -> anyhow::Result<()> {
         "Total {} unique stock info fetched by the scanner",
         stock_infos.len(),
     );
-    persist::fundaments::save_scanned_stocks(&stock_infos.into_values().collect::<Vec<_>>())
-        .await?;
+    persist::crawler::save_scanned_stocks(&stock_infos.into_values().collect::<Vec<_>>()).await?;
     Ok(())
 }

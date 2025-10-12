@@ -11,7 +11,7 @@ use std::time::Duration;
 pub use sqlx::Error;
 pub use sqlx::Result;
 
-pub mod fundaments;
+pub mod crawler;
 pub mod groups;
 pub mod price_level;
 pub mod prices;
