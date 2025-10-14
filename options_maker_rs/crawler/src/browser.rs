@@ -1,47 +1,99 @@
 use anyhow::Context;
 use app_config::CRAWLER_CONF;
 use headless_chrome::Browser;
+use serde::Deserialize;
 use std::io::{BufRead, BufReader};
 use std::net::{Ipv4Addr, TcpListener};
 use std::os::unix::process::CommandExt;
 use std::process::{Command, Stdio};
 use std::time::Duration;
 use std::{fs, thread};
-use tracing::{info, warn};
+use sysinfo::{RefreshKind, System};
+use tracing::{debug, info, warn};
+use util::http::HTTP_CLIENT;
 
 const PID_FILE: &str = "chrome.pid";
 
+const REMOTE_DEBUG_ARG: &str = "--remote-debugging-port";
+
 pub fn init_browser() -> anyhow::Result<Browser> {
-    match try_connect_existing_session() {
-        Ok(browser) => Ok(browser),
-        Err(e) => {
-            warn!("Couldn't connect to existing session: {e}");
+    try_resume_previous_session()
+        .or_else(|e| {
+            warn!("Couldn't resume prev session '{e}', try connecting to live session");
+            try_connect_existing_session()
+        })
+        .or_else(|e| {
+            warn!("Couldnt' resume previous session '{e}', try start new session");
             start_new_session()
-        }
-    }
+        })
 }
 
-fn try_connect_existing_session() -> anyhow::Result<Browser> {
+fn try_resume_previous_session() -> anyhow::Result<Browser> {
     if !fs::exists(PID_FILE)? {
-        anyhow::bail!("'{PID_FILE}' file doesn't exist");
+        anyhow::bail!("{PID_FILE} file doesn't exist");
     }
 
     let pid_file = fs::canonicalize(PID_FILE).context("Failed to canonicalize PID file")?;
     let ws_url = fs::read_to_string(PID_FILE)
         .with_context(|| format!("Failed to read PID file: {}", pid_file.display()))?;
 
-    info!("Connecting to existing session with url: '{ws_url}'");
+    info!("Resuming previous session with url: '{ws_url}'");
     match connect(ws_url.trim()) {
         Ok(browser) => {
-            info!("Successfully connected to existing browser session");
+            info!("Successfully resumed the previous browser session");
             Ok(browser)
         }
         Err(e) => {
-            warn!("Failed to connect to existing session: {e}");
             fs::remove_file(pid_file)?;
             Err(e)
         }
     }
+}
+
+fn try_connect_existing_session() -> anyhow::Result<Browser> {
+    let sys_info = System::new_with_specifics(RefreshKind::everything());
+    let chrome_process = sys_info
+        .processes()
+        .values()
+        .filter(|&p| {
+            p.cmd()
+                .first()
+                .map(|process| process.to_string_lossy().to_lowercase().contains("chrome"))
+                .unwrap_or_default()
+        })
+        .filter(|p| {
+            p.cmd()
+                .iter()
+                .any(|arg| arg.to_string_lossy().starts_with(REMOTE_DEBUG_ARG))
+        })
+        .next()
+        .ok_or_else(|| anyhow::anyhow!("No Chrome process with remote debug port found"))?;
+    info!(
+        "Found a chrome process with debug enabled: {:?}",
+        chrome_process.cmd()
+    );
+    let debug_str = chrome_process
+        .cmd()
+        .iter()
+        .map(|arg| arg.to_string_lossy())
+        .find(|arg| arg.starts_with(REMOTE_DEBUG_ARG))
+        .ok_or_else(|| anyhow::anyhow!("Oops didn't find debug argument"))?;
+    let debug_port = debug_str
+        .split('=')
+        .nth(1)
+        .map(|s| s.trim())
+        .map(|s| {
+            s.parse::<u16>()
+                .map_err(|e| anyhow::anyhow!("Failed to parse {s} into u16: {e}"))
+        })
+        .ok_or_else(|| anyhow::anyhow!("Didn't find debug port in {debug_str}"))??;
+    debug!("Found debug port: {debug_port}");
+
+    let ws_url = fetch_debug_info(debug_port)?;
+    info!("Successfully fetched debug ws url: {ws_url}");
+    fs::write(PID_FILE, &ws_url)?;
+
+    connect(ws_url)
 }
 
 fn start_new_session() -> anyhow::Result<Browser> {
@@ -49,7 +101,7 @@ fn start_new_session() -> anyhow::Result<Browser> {
         let port = quick_port()?;
         info!("Starting new chrome session with remote debugging port at: {port}");
         let mut process = Command::new(&CRAWLER_CONF.chrome_path)
-            .arg(format!("--remote-debugging-port={port}"))
+            .arg(format!("{REMOTE_DEBUG_ARG}={port}"))
             .arg(&CRAWLER_CONF.chrome_extra_args)
             .stdin(Stdio::null())
             .stdout(Stdio::piped())
@@ -79,16 +131,37 @@ fn start_new_session() -> anyhow::Result<Browser> {
     }
 
     let ws_url = start_chrome_process()?;
-    let browser = connect(&ws_url).with_context(|| format!("Failed to connect to {ws_url}"))?;
-    Ok(browser)
+    connect(&ws_url)
 }
 
 fn connect(ws_url: impl Into<String>) -> anyhow::Result<Browser> {
-    Browser::connect_with_timeout(ws_url.into(), Duration::from_secs(300))
+    let url = ws_url.into();
+    Browser::connect_with_timeout(url.clone(), Duration::from_secs(300))
+        .with_context(|| format!("Failed to connect to {url}"))
 }
 
 fn quick_port() -> anyhow::Result<u16> {
     Ok(TcpListener::bind((Ipv4Addr::LOCALHOST, 0))?
         .local_addr()?
         .port())
+}
+
+fn fetch_debug_info(debug_port: u16) -> anyhow::Result<String> {
+    #[derive(Debug, Deserialize)]
+    #[serde(rename_all = "camelCase")]
+    struct DebugInfo {
+        web_socket_debugger_url: String,
+    }
+
+    let handle = tokio::runtime::Handle::current();
+    let info = handle.block_on(async {
+        let response = HTTP_CLIENT
+            .get(format!("http://localhost:{debug_port}/json/version"))
+            .send()
+            .await?;
+        let debug_info = response.json::<DebugInfo>().await?;
+        Ok::<_, anyhow::Error>(debug_info)
+    })?;
+
+    Ok(info.web_socket_debugger_url)
 }

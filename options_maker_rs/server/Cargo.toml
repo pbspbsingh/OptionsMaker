@@ -18,7 +18,7 @@ tracing = { workspace = true }
 mimalloc = "0.1"
 flate2 = { version = "1.0", default-features = false }
 itertools = { workspace = true }
-rand = { version = "0.9", default-features = false }
+rand = { workspace = true, default-features = false }
 rustc-hash = { workspace = true }
 
 app_config = { path = "../app_config" }

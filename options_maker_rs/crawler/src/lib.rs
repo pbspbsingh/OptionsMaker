@@ -1,4 +1,5 @@
 use app_config::{APP_CONFIG, CRAWLER_CONF};
+use rand::seq::SliceRandom;
 use std::collections::HashMap;
 use std::sync::Arc;
 use tokio::{task, time};
@@ -22,6 +23,9 @@ pub async fn start_crawling() -> anyhow::Result<()> {
     loop {
         if let Err(e) = run_scanner().await {
             error!("Failed to run the stock scanner: {e}");
+        }
+        if let Err(e) = fetch_financials().await {
+            error!("Failed to fetch fundamentals: {e}");
         }
         time::sleep(time::Duration::from_secs(300)).await;
     }
@@ -63,5 +67,14 @@ async fn run_scanner() -> anyhow::Result<()> {
         stock_infos.len(),
     );
     persist::crawler::save_scanned_stocks(&stock_infos.into_values().collect::<Vec<_>>()).await?;
+    Ok(())
+}
+
+async fn fetch_financials() -> anyhow::Result<()> {
+    let mut stocks = persist::crawler::get_stocks().await?;
+    stocks.shuffle(&mut rand::rng());
+    for stock in stocks {
+        
+    }
     Ok(())
 }
