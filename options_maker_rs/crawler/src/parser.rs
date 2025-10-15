@@ -1,7 +1,9 @@
 use crate::StockInfo;
 use app_config::CRAWLER_CONF;
+use html2text::config;
+use regex::Regex;
 use scraper::{Html, Selector};
-use std::collections::HashMap;
+use std::{collections::HashMap, io::Read};
 use tracing::{debug, warn};
 
 pub fn parse_stock_info(inner_table: &str) -> Vec<StockInfo> {
@@ -64,6 +66,92 @@ pub fn parse_stock_info(inner_table: &str) -> Vec<StockInfo> {
     result
 }
 
+pub fn parse_fundamental_score(html: &str) -> anyhow::Result<(bool, f64)> {
+    let lines = config::plain_no_decorate().string_from_read(html.as_bytes(), 1440)?;
+
+    let is_excempt = extract_sepa_exemption(&lines)
+        .ok_or_else(|| anyhow::anyhow!("Failed to find exemption in \n{lines}\n"))?;
+
+    if is_excempt {
+        let score = extract_exemption_score(&lines)
+            .ok_or_else(|| anyhow::anyhow!("Failed to find exemption score in \n{lines}\n"))?;
+        Ok((true, score))
+    } else {
+        let score = extract_overall_score(&lines)
+            .ok_or_else(|| anyhow::anyhow!("Failed to find overall score in \n{lines}\n"))?;
+        Ok((false, score))
+    }
+}
+
+fn extract_sepa_exemption(text: &str) -> Option<bool> {
+    let re = Regex::new(
+        r"(?i)is\s+passing\s+sepa\s+due\s+to\s+exemptions?[\s\-,:(\[]*(?:yes/no)?[\s\-,:)\]]*\s*(yes|no)"
+    ).ok()?;
+
+    re.captures(text)
+        .and_then(|caps| caps.get(1))
+        .map(|m| m.as_str().to_lowercase() == "yes")
+}
+
+fn extract_overall_score(text: &str) -> Option<f64> {
+    let re = Regex::new(
+        r"(?i)overall\s+score[\s\-,:(\[]*(?:1-10)?[\s\-,:)\]]*(?:using\s+appropriate\s+weights)?[\s\n]*([0-9]+\.?[0-9]*)"
+    ).ok()?;
+
+    re.captures(text)
+        .and_then(|caps| caps.get(1))
+        .and_then(|m| m.as_str().parse::<f64>().ok())
+}
+
+fn extract_exemption_score(text: &str) -> Option<f64> {
+    let re = Regex::new(
+        r"(?i)exemption\s+score[\s\-,:(\[]*(?:if\s+applicable)?[\s\-,:)\]]*[\s\n]*([0-9]+\.?[0-9]*|n/?a)"
+    ).ok()?;
+
+    re.captures(text)
+        .and_then(|caps| caps.get(1))
+        .and_then(|m| {
+            let val = m.as_str().to_lowercase();
+            if val.contains("n") || val.contains("a") {
+                None // Return None for N/A
+            } else {
+                val.parse::<f64>().ok()
+            }
+        })
+}
+
 fn s(selector: impl AsRef<str>) -> Selector {
     Selector::parse(selector.as_ref()).unwrap()
+}
+
+#[cfg(test)]
+mod test {
+    #[test]
+    fn test_score() {
+        let text = r#"
+        Provide Overall Score (1-10) using appropriate weights.
+
+Overall Score: 5.8/10
+
+Weighting: EPS (30%), Revenue (20%), Margins (15%), ROE (10%), Debt/Cash (5%), Catalyst (10%), Forward View (10%)
+
+(3 x 0.3) + (4 x 0.2) + (5 x 0.15) + (2 x 0.1) + (7 x 0.05) + (8 x 0.1) + (8 x 0.1) = 0.9 + 0.8 + 0.75 + 0.2 + 0.35 + 0.8 + 0.8 = 4.6. Applying Exemption Score (7) as a modifier:  
+2
+4.6+7
+​
+ ≈5.8 to reflect the significant financial inflection point.
+
+Provide Exemption Score if applicable.
+
+Exemption Score: 7/10
+
+Indicate “Is passing SEPA due to Exemptions: YES/NO”.
+
+Is passing SEPA due to Exemptions: NO (The core quantitative criteria (EPS, Revenue Growth, Net Margins, ROE) all fail the minimum thresholds. The acceleration in key metrics justifies the Exemption score but does not override the hard pass/fail criteria).
+
+Provide a succinct summary of the observation, highlighting the most recent key data points.
+    
+        "#;
+        super::parse_fundamental_score(text).unwrap();
+    }
 }

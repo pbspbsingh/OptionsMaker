@@ -10,11 +10,14 @@ path = "src/main.rs"
 [dependencies]
 anyhow = { workspace = true }
 tracing = { workspace = true }
+
 headless_chrome = "1.0"
 scraper = "0.24"
-sysinfo = "0.37"
+html2text = "0.15"
 rand = { workspace = true }
-
+askama = { workspace = true }
+regex = "1"
+sysinfo = "0.37"
 
 chrono = { workspace = true }
 serde = { workspace = true }

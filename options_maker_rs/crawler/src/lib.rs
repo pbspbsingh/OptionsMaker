@@ -3,10 +3,11 @@ use rand::seq::SliceRandom;
 use std::collections::HashMap;
 use std::sync::Arc;
 use tokio::{task, time};
-use tracing::{debug, error, info};
+use tracing::{debug, error, info, warn};
 use util::time::TradingDay;
 
 mod browser;
+mod fundamentals;
 mod parser;
 mod stock_scanner;
 
@@ -24,7 +25,7 @@ pub async fn start_crawling() -> anyhow::Result<()> {
         if let Err(e) = run_scanner().await {
             error!("Failed to run the stock scanner: {e}");
         }
-        if let Err(e) = fetch_financials().await {
+        if let Err(e) = fetch_fundamentals().await {
             error!("Failed to fetch fundamentals: {e}");
         }
         time::sleep(time::Duration::from_secs(300)).await;
@@ -70,11 +71,48 @@ async fn run_scanner() -> anyhow::Result<()> {
     Ok(())
 }
 
-async fn fetch_financials() -> anyhow::Result<()> {
+async fn fetch_fundamentals() -> anyhow::Result<()> {
+    let browser = Arc::new(task::spawn_blocking(browser::init_browser).await??);
+
     let mut stocks = persist::crawler::get_stocks().await?;
     stocks.shuffle(&mut rand::rng());
+
+    let brwzr = browser.clone();
+    let tab = task::spawn_blocking(move || fundamentals::load_gemini(brwzr)).await??;
     for stock in stocks {
-        
+        info!("Fetching fundaments for {}...", stock.symbol);
+        let t2 = tab.clone();
+        let symbol = stock.symbol.clone();
+        let response = match task::spawn_blocking(|| fundamentals::ask_ai(t2, symbol)).await? {
+            Ok(response) => {
+                info!("Successfully fetch AI response {}", response.len());
+                response
+            }
+            Err(e) => {
+                warn!("Failed to fetch fundamentals for {}: {}", stock.symbol, e);
+                break;
+            }
+        };
+        let (is_exempt, score) = match parser::parse_fundamental_score(&response) {
+            Ok((exempt, score)) => {
+                info!(
+                    "Successfully parsed the score for {}: {}/{:.2?}",
+                    stock.symbol, exempt, score,
+                );
+                (Some(exempt), Some(score))
+            }
+            Err(e) => {
+                warn!("Failed to parse the score for {}: {}", stock.symbol, e);
+                (None, None)
+            }
+        };
     }
+    task::spawn_blocking(move || {
+        tab.close(true).ok();
+    })
+    .await
+    .ok();
+
+    drop(browser);
     Ok(())
 }
