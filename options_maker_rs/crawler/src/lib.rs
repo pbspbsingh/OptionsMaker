@@ -1,4 +1,5 @@
 use app_config::{APP_CONFIG, CRAWLER_CONF};
+use chrono::TimeDelta;
 use rand::seq::SliceRandom;
 use std::collections::HashMap;
 use std::sync::Arc;
@@ -11,7 +12,7 @@ mod fundamentals;
 mod parser;
 mod stock_scanner;
 
-use persist::crawler::StockInfo;
+use persist::crawler::{StockFundamental, StockInfo};
 
 pub async fn start_crawling() -> anyhow::Result<()> {
     // Start this instance just to validate if browser is connecting fine
@@ -80,6 +81,18 @@ async fn fetch_fundamentals() -> anyhow::Result<()> {
     let brwzr = browser.clone();
     let tab = task::spawn_blocking(move || fundamentals::load_gemini(brwzr)).await??;
     for stock in stocks {
+        let today = util::time::now().date_naive();
+        let sf = persist::crawler::get_fundamental(&stock.symbol).await?;
+        if let Some(sf) = sf
+            && today - sf.last_updated <= TimeDelta::days(7)
+        {
+            debug!(
+                "The fundamentals of {} was last updated on {}, no need to update it",
+                stock.symbol, sf.last_updated,
+            );
+            continue;
+        }
+
         info!("Fetching fundaments for {}...", stock.symbol);
         let t2 = tab.clone();
         let symbol = stock.symbol.clone();
@@ -93,20 +106,28 @@ async fn fetch_fundamentals() -> anyhow::Result<()> {
                 break;
             }
         };
-        let (is_exempt, score) = match parser::parse_fundamental_score(&response) {
+        let score = match parser::parse_fundamental_score(&response) {
             Ok((exempt, score)) => {
                 info!(
                     "Successfully parsed the score for {}: {}/{:.2?}",
                     stock.symbol, exempt, score,
                 );
-                (Some(exempt), Some(score))
+                Some(score)
             }
             Err(e) => {
                 warn!("Failed to parse the score for {}: {}", stock.symbol, e);
-                (None, None)
+                None
             }
         };
+        let sf = StockFundamental {
+            symbol: stock.symbol.clone(),
+            info: response,
+            score,
+            last_updated: today,
+        };
+        persist::crawler::save_fundamental(sf).await?;
     }
+    
     task::spawn_blocking(move || {
         tab.close(true).ok();
     })

@@ -23,9 +23,9 @@ Structure the results in the following exact table format:
 
 Structure the respose in exact format mentioned below:
 
-**Overall Score (1-10) using appropriate weights**
+**Overall Score (1-10) using appropriate weights:**
 
-**Exemption Score if applicable**
+**Exemption Score if applicable:**
 
 **Is passing SEPA due to Exemptions: YES/NO**
 

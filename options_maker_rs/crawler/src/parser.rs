@@ -3,7 +3,7 @@ use app_config::CRAWLER_CONF;
 use html2text::config;
 use regex::Regex;
 use scraper::{Html, Selector};
-use std::{collections::HashMap, io::Read};
+use std::{collections::HashMap};
 use tracing::{debug, warn};
 
 pub fn parse_stock_info(inner_table: &str) -> Vec<StockInfo> {
@@ -95,7 +95,7 @@ fn extract_sepa_exemption(text: &str) -> Option<bool> {
 
 fn extract_overall_score(text: &str) -> Option<f64> {
     let re = Regex::new(
-        r"(?i)overall\s+score[\s\-,:(\[]*(?:1-10)?[\s\-,:)\]]*(?:using\s+appropriate\s+weights)?[\s\n]*([0-9]+\.?[0-9]*)"
+        r"(?i)overall\s+score[\s\-,:(\[]*(?:1-10)?[\s\-,:)\]]*(?:using\s+appropriate\s+weights)?[\s\n:]*([0-9]+\.?[0-9]*)"
     ).ok()?;
 
     re.captures(text)
@@ -105,7 +105,7 @@ fn extract_overall_score(text: &str) -> Option<f64> {
 
 fn extract_exemption_score(text: &str) -> Option<f64> {
     let re = Regex::new(
-        r"(?i)exemption\s+score[\s\-,:(\[]*(?:if\s+applicable)?[\s\-,:)\]]*[\s\n]*([0-9]+\.?[0-9]*|n/?a)"
+        r"(?i)exemption\s+score[\s\-,:(\[]*(?:if\s+applicable)?[\s\-,:)\]]*[\s\n:]*([0-9]+\.?[0-9]*|n/?a)"
     ).ok()?;
 
     re.captures(text)
@@ -129,29 +129,16 @@ mod test {
     #[test]
     fn test_score() {
         let text = r#"
-        Provide Overall Score (1-10) using appropriate weights.
+       Overall Score (1-10) using appropriate weights: 9.5
 
-Overall Score: 5.8/10
+Exemption Score if applicable: 8
 
-Weighting: EPS (30%), Revenue (20%), Margins (15%), ROE (10%), Debt/Cash (5%), Catalyst (10%), Forward View (10%)
-
-(3 x 0.3) + (4 x 0.2) + (5 x 0.15) + (2 x 0.1) + (7 x 0.05) + (8 x 0.1) + (8 x 0.1) = 0.9 + 0.8 + 0.75 + 0.2 + 0.35 + 0.8 + 0.8 = 4.6. Applying Exemption Score (7) as a modifier:  
-2
-4.6+7
-​
- ≈5.8 to reflect the significant financial inflection point.
-
-Provide Exemption Score if applicable.
-
-Exemption Score: 7/10
-
-Indicate “Is passing SEPA due to Exemptions: YES/NO”.
-
-Is passing SEPA due to Exemptions: NO (The core quantitative criteria (EPS, Revenue Growth, Net Margins, ROE) all fail the minimum thresholds. The acceleration in key metrics justifies the Exemption score but does not override the hard pass/fail criteria).
+Is passing SEPA due to Exemptions: YES (All core criteria were passed, Exemption is noted to mitigate the slightly low ROE score by highlighting the transition to profitability).
 
 Provide a succinct summary of the observation, highlighting the most recent key data points.
-    
+
+Credo Technology ($CRDO) shows an exceptional and accelerating fundamental profile that easily passes Minervini's SEPA requirements. The company has moved decisively from a low-growth/loss-making phase into a high-growth, high-profitability phase driven by the massive AI infrastructure build-out.
         "#;
-        super::parse_fundamental_score(text).unwrap();
+        eprintln!("Result: {:?}", super::parse_fundamental_score(text).unwrap());
     }
 }

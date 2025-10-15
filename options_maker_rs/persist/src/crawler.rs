@@ -1,7 +1,7 @@
 use crate::db;
 use serde::Serialize;
 use sqlx::types::Json;
-use sqlx::types::chrono::{DateTime, Local};
+use sqlx::types::chrono::{DateTime, Local, NaiveDate};
 use std::collections::HashMap;
 
 #[derive(Debug, Clone, Serialize)]
@@ -11,6 +11,14 @@ pub struct StockInfo {
     pub sector: String,
     pub industry: String,
     pub price_changes: HashMap<String, f64>,
+}
+
+#[derive(Debug, Clone, Serialize)]
+pub struct StockFundamental {
+    pub symbol: String,
+    pub info: String,
+    pub score: Option<f64>,
+    pub last_updated: NaiveDate,
 }
 
 pub async fn scanner_last_updated() -> sqlx::Result<Option<DateTime<Local>>> {
@@ -70,4 +78,42 @@ pub async fn get_stocks() -> sqlx::Result<Vec<StockInfo>> {
     .fetch_all(db())
     .await?;
     Ok(rows)
+}
+
+pub async fn get_fundamental(symbol: &str) -> sqlx::Result<Option<StockFundamental>> {
+    sqlx::query!(
+        r#"
+            SELECT info, score, last_updated 
+            FROM fudamentals
+            WHERE symbol=$1
+            ORDER BY last_updated DESC
+            LIMIT 1
+        "#,
+        symbol
+    )
+    .map(|rec| StockFundamental {
+        symbol: symbol.to_owned(),
+        info: rec.info,
+        score: rec.score,
+        last_updated: rec.last_updated,
+    })
+    .fetch_optional(db())
+    .await
+}
+
+pub async fn save_fundamental(stock: StockFundamental) -> sqlx::Result<()> {
+    sqlx::query!(
+        r"
+            INSERT INTO fudamentals(symbol, info, score, last_updated)
+            VALUES ($1, $2, $3, $4)
+
+        ",
+        stock.symbol,
+        stock.info,
+        stock.score,
+        stock.last_updated,
+    )
+    .execute(db())
+    .await?;
+    Ok(())
 }

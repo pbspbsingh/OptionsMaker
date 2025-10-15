@@ -6,11 +6,11 @@ CREATE TABLE scanned_symbols (
     price_changes JSONB NOT NULL,
     updated DATETIME NOT NULL
 );
-
 CREATE TABLE fudamentals (
     fid INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
     symbol VARCHAR(16) NOT NULL,
-    ts DATE NOT NULL,
     info TEXT NOT NULL,
-    UNIQUE (symbol, ts)
+    score REAL,
+    last_updated DATE NOT NULL,
+    UNIQUE (symbol, last_updated)
 );

@@ -61,5 +61,5 @@ pub fn ask_ai(tab: Arc<Tab>, symbol: String) -> anyhow::Result<String> {
 }
 
 fn delay() {
-    thread::sleep(Duration::from_millis(rand::random_range(50..500)));
+    thread::sleep(Duration::from_millis(rand::random_range(400..2000)));
 }
