@@ -49,19 +49,22 @@ async fn run_scanner() -> anyhow::Result<()> {
 
     let mut stock_infos = HashMap::new();
     let browser = Arc::new(task::spawn_blocking(browser::init_browser).await??);
-    for (key, value) in &CRAWLER_CONF.period_config {
+    for period in CRAWLER_CONF.period_config.clone() {
+        info!("\n####### Loading top gainer for '{period}' ######");
         let mut filters = CRAWLER_CONF.scanner_config.clone();
-        for key in CRAWLER_CONF.period_config.keys() {
-            filters.insert(key.clone(), String::default());
-        }
-        filters.insert(key.clone(), value.to_string());
+        filters.insert(period.clone(), String::default());
 
-        info!("Loading top gainer with '{key}'={value}%");
         let browser = browser.clone();
         let infos =
-            task::spawn_blocking(|| stock_scanner::fetch_top_gainers(browser, filters)).await??;
+            task::spawn_blocking(|| stock_scanner::fetch_top_gainers(browser, filters, period))
+                .await??;
         for info in infos {
-            stock_infos.insert(info.symbol.clone(), info);
+            stock_infos
+                .entry(info.symbol.clone())
+                .and_modify(|stock_info: &mut StockInfo| {
+                    stock_info.price_changes.extend(info.price_changes.clone());
+                })
+                .or_insert(info);
         }
     }
     info!(
@@ -73,6 +76,10 @@ async fn run_scanner() -> anyhow::Result<()> {
 }
 
 async fn fetch_fundamentals() -> anyhow::Result<()> {
+    if !CRAWLER_CONF.fetch_fundamentals {
+        return Ok(());
+    }
+
     let browser = Arc::new(task::spawn_blocking(browser::init_browser).await??);
 
     let mut stocks = persist::crawler::get_stocks().await?;
@@ -127,7 +134,7 @@ async fn fetch_fundamentals() -> anyhow::Result<()> {
         };
         persist::crawler::save_fundamental(sf).await?;
     }
-    
+
     task::spawn_blocking(move || {
         tab.close(true).ok();
     })

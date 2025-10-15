@@ -3,11 +3,10 @@ use app_config::CRAWLER_CONF;
 use html2text::config;
 use regex::Regex;
 use scraper::{Html, Selector};
-use std::{collections::HashMap};
+use std::collections::HashMap;
 use tracing::{debug, warn};
 
 pub fn parse_stock_info(inner_table: &str) -> Vec<StockInfo> {
-    let exchange_map = &CRAWLER_CONF.exchange_map;
     let table = format!("<table>{inner_table}</table>");
     let table = Html::parse_document(&table);
     let headers = table
@@ -29,12 +28,11 @@ pub fn parse_stock_info(inner_table: &str) -> Vec<StockInfo> {
             .map(|cell| cell.text().collect::<String>().trim().to_owned())
             .collect::<Vec<_>>();
         let name = cells[headers["Symbol"]].clone();
-        let exchange = &cells[headers["Exchange"]];
-        let exchange = exchange_map.get(exchange).unwrap_or(exchange).clone();
+        let exchange = cells[headers["Exchange"]].clone();
         let sector = cells[headers["Sector"]].clone();
         let industry = cells[headers["Industry"]].clone();
         let mut price_changes = HashMap::new();
-        for name in CRAWLER_CONF.period_config.keys() {
+        for name in &CRAWLER_CONF.period_config {
             let key = name.trim_start_matches("Price").trim();
             if let Some(header) = headers.get(key) {
                 let change = cells[*header].trim().replace(",", "");
@@ -48,11 +46,6 @@ pub fn parse_stock_info(inner_table: &str) -> Vec<StockInfo> {
                 } else {
                     warn!("Failed to parse {change} as float")
                 }
-            } else {
-                warn!(
-                    "Price change key {} not found in headers {:?}",
-                    key, headers
-                );
             }
         }
         result.push(StockInfo {
@@ -139,6 +132,9 @@ Provide a succinct summary of the observation, highlighting the most recent key 
 
 Credo Technology ($CRDO) shows an exceptional and accelerating fundamental profile that easily passes Minervini's SEPA requirements. The company has moved decisively from a low-growth/loss-making phase into a high-growth, high-profitability phase driven by the massive AI infrastructure build-out.
         "#;
-        eprintln!("Result: {:?}", super::parse_fundamental_score(text).unwrap());
+        eprintln!(
+            "Result: {:?}",
+            super::parse_fundamental_score(text).unwrap()
+        );
     }
 }

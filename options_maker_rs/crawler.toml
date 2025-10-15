@@ -1,8 +1,18 @@
-# chrome_path = "/Ap/plications/Google Chrome.app/Contents/MacOS/Google Chrome"
+# chrome_path = "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome"
 # chrome_extra_args = "--user-data-dir=/Users/singhpra/Documents/ChromeDataDir"
 
 chrome_path = "/opt/google/chrome/chrome"
 chrome_extra_args = "--user-data-dir=/home/prashant/OptionsMaker/chrome_data"
+
+fetch_pages = 10
+period_config = [
+    "Price Change 1M",
+    "Price Change 3M",
+    "Price Change 6M",
+    "Price Change 1Y",
+]
+
+fetch_fundamentals = false
 
 [scanner_config]
 "Market Cap" = "500M"
@@ -12,12 +22,3 @@ chrome_extra_args = "--user-data-dir=/home/prashant/OptionsMaker/chrome_data"
 "Sector" = ""
 "Industry" = ""
 "Exchange" = ""
-
-[period_config]
-"Price Change 1M" = 20
-"Price Change 3M" = 35
-"Price Change 6M" = 50
-"Price Change 1Y" = 100
-
-[exchange_map]
-"NYSEAMERICAN"="AMEX"

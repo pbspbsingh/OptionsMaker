@@ -1,5 +1,6 @@
 use crate::{StockInfo, parser};
 use anyhow::Context;
+use app_config::CRAWLER_CONF;
 use headless_chrome::{Browser, Tab};
 use serde_json::Value;
 use std::collections::HashMap;
@@ -10,6 +11,7 @@ use tracing::{info, warn};
 pub fn fetch_top_gainers(
     browser: Arc<Browser>,
     filters: HashMap<String, String>,
+    period: String,
 ) -> anyhow::Result<Vec<StockInfo>> {
     let start = Instant::now();
     let tab = browser.new_tab()?;
@@ -54,9 +56,14 @@ pub fn fetch_top_gainers(
         filters.click()?;
     }
 
+    tab.wait_for_element(&format!(
+        r#"table#main-table thead th span[title="Sort by: {period}"]"#
+    ))?
+    .click()?;
+
     let mut stock_infos = Vec::new();
-    let mut pages = 1;
-    loop {
+    let mut pages = 0;
+    while pages < CRAWLER_CONF.fetch_pages {
         let _table = tab.wait_for_element(r#"table#main-table"#)?;
         if let Some(Value::String(table_html)) = tab
             .evaluate(
