@@ -19,19 +19,7 @@ pub fn router() -> Router {
 }
 
 async fn time_filters() -> impl IntoResponse {
-    let time_filters = CRAWLER_CONF
-        .period_config
-        .keys()
-        .sorted_by_key(|name| match name.as_str() {
-            "Price Change 1M" => 0,
-            "Price Change 3M" => 2,
-            "Price Change 6M" => 3,
-            "Price Change 1Y" => 4,
-            _ => 100,
-        })
-        .cloned()
-        .collect::<Vec<_>>();
-    Json(time_filters)
+    Json(&CRAWLER_CONF.period_config)
 }
 
 #[derive(Deserialize, Debug)]
@@ -64,7 +52,7 @@ async fn scanned_stocks(Query(filter): Query<Filter>) -> AppResult<Json<Filtered
     }
 
     let tf_config = &CRAWLER_CONF.period_config;
-    if !tf_config.contains_key(&filter.tf) {
+    if !tf_config.contains(&filter.tf) {
         return Err(AppError::Generic(format!(
             "Illegal time filter: {}",
             &filter.tf
@@ -75,7 +63,6 @@ async fn scanned_stocks(Query(filter): Query<Filter>) -> AppResult<Json<Filtered
     let stocks = stocks
         .into_iter()
         .filter(|si| si.price_changes.contains_key(&filter.tf))
-        .filter(|si| si.price_changes[&filter.tf] >= tf_config[&filter.tf] as f64)
         .collect_vec();
 
     let mut sectors = HashMap::default();
